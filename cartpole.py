@@ -1,5 +1,5 @@
 import gym
-from gym import wrappers
+from gym.wrappers import Monitor
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -11,6 +11,8 @@ https://www.youtube.com/channel/UC58v9cLitc8VaCjrcKyAbrw
 
 # Create CartPole instance
 env = gym.make("CartPole-v0")
+# Wrap env with a monitor. Always overwrite the last run, and don't save videos.
+env = Monitor(env, directory='monitor', force=True, video_callable=lambda e: False)
 
 # Set global variables
 MAXSTATES = 10 ** 4
@@ -86,7 +88,6 @@ def play_one_game(bins, Q, eps=0.5):
     done = False
     count = 0  # number of moves in an episode
     state = get_state_as_string(assign_bins(observation, bins)) # initializes state randomly
-    total_reward = 0
 
     while not done:
         count += 1
@@ -97,9 +98,7 @@ def play_one_game(bins, Q, eps=0.5):
         else:
             act = max_dict(Q[state])[0]
 
-        observation, reward, done, info = env.step(act)
-
-        total_reward += reward
+        observation, reward, done, _ = env.step(act)
 
         if done and count < 200:
             reward = -400
@@ -110,34 +109,28 @@ def play_one_game(bins, Q, eps=0.5):
         Q[state][act] += ALPHA * (reward + GAMMA * max_q_s1a1 - Q[state][act])
         state, act = state_new, a1
 
-    return total_reward, count
-
 
 def play_many_games(bins, N=6000):
     Q = initialize_Q()
 
-    length = []
-    reward = []
     for n in range(N):
         # ensure that epsilon decreases as the game continues
         eps = 1.0 / np.sqrt(n+1)
         # eps = 1.0 / tf.sqrt(float(n) + 1)
-        episode_reward, episode_length = play_one_game(bins, Q, eps)
+        play_one_game(bins, Q, eps)
 
         if n % 100 == 0:
-            print(n, '%.4f' % eps, episode_reward) # so we know roughly what game we are on
-        length.append(episode_length)
-        reward.append(episode_reward)
-
-    return length, reward
+            episode_reward = env.get_episode_rewards()[-1]
+            print(n, '%.4f' % eps, episode_reward, flush=True) # so we know roughly what game we are on
 
 
-def plot_running_avg(totalrewards):
-    N = len(totalrewards)
+def plot_running_avg():
+    rewards = env.get_episode_rewards()
+    N = len(rewards)
     running_avg = np.empty(N)
     # running_avg = tf.empty(N)
     for t in range(N):
-        running_avg[t] = np.mean(totalrewards[max(0, t-100):(t+1)])
+        running_avg[t] = np.mean(rewards[max(0, t-100):(t+1)])
         # running_avg[t] = tf.mean(totalrewards[max(0, t - 100):(t + 1)])
     plt.plot(running_avg)
     plt.title("Running Average")
@@ -146,5 +139,5 @@ def plot_running_avg(totalrewards):
 
 if __name__ == '__main__':
     bins = create_bins()
-    episode_lengths, episode_rewards = play_many_games(bins)
-    plot_running_avg(episode_rewards)
+    play_many_games(bins)
+    plot_running_avg()
