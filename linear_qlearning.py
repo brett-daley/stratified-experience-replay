@@ -8,16 +8,16 @@ def exploration_schedule(t, timeframe=2_000, min_epsilon=0.1):
     return max(1.0 - (1.0 - min_epsilon) * (t / timeframe), min_epsilon)
 
 
-def train(env, timesteps=5_000, gamma=0.99):
+def train(env, model, timesteps=5_000, gamma=0.99):
     env = Monitor(env, directory='monitor', force=True, video_callable=lambda e: False)
     state = env.reset()
 
     optimizer = tf.keras.optimizers.SGD(learning_rate=0.01)
 
-    model = tf.keras.Sequential()
-    model.add(tf.keras.layers.Dense(env.action_space.n))
     model.build(input_shape=(None, *env.observation_space.shape))
+    # TODO: technically, this shouldn't be mean squared error
     model.compile(loss='mean_squared_error', optimizer=optimizer)
+    print(model.summary())
 
     print('timestep', 'episode', 'avg_return', 'epsilon', sep='  ', flush=True)
     for t in range(timesteps+1):
