@@ -7,12 +7,10 @@ import tensorflow as tf
 
 #Put everything in function "main" and run below.
 def main():
+    # Create CartPole instance
+    env = gym.make("CartPole-v0")
     episode_rewards, episode_lengths = cartpole_playtolearn(eps=0.5, timesteps=600, alpha=0.01, gamma=0.9)
     plot_running_avg(episode_rewards)
-
-
-# Create CartPole instance
-env = gym.make("CartPole-v0")
 
 
 def Qnet_forward(state_vector):
