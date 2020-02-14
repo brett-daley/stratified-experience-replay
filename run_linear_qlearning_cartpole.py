@@ -2,13 +2,13 @@ import tensorflow as tf
 import gym
 
 import linear_qlearning
-import pretrained_models
+from pretrained_models import load_custom
 
 
 
 def main():
     env = gym.make('CartPole-v0')
-    model = pretrained_models.load('cartpole_mlp', unlearn_last_layer=True)
+    model = load_custom('cartpole_mlp', num_actions=env.action_space.n)
     linear_qlearning.train(env, model)
 
 

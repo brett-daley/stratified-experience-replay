@@ -1,29 +1,20 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Dense
 import os
 
+from pretrained_models import keras_models, model_editor
 
-def load(model_name, unlearn_last_layer):
-    if '.h5' not in model_name:
-        model_name += '.h5'
+
+def load_custom(model_name, num_actions=None):
     model_path = os.path.join(__package__, model_name)
-    model = tf.keras.models.load_model(model_path)
+    model = tf.keras.models.load_model(model_path + '.h5')
 
-    make_untrainable(model)
-    if unlearn_last_layer:
-        model = replace_last_layer(model)
-    return model
+    model_editor.make_untrainable(model)
 
-
-def make_untrainable(model):
-    for l in model.layers:
-        l.trainable = False
+    if not num_actions:
+        # If the number of actions is not specified, attempt to use the model as-is.
+        return model
+    return model_editor.replace_last_layer(model, units=num_actions)
 
 
-def replace_last_layer(model):
-    assert isinstance(model, tf.keras.models.Sequential)
-    layers = [l for l in model.layers]
-    last_layer = layers.pop()
-    assert isinstance(last_layer, tf.keras.layers.Dense)
-    layers.append(Dense(last_layer.units, activation=last_layer.activation))
-    return tf.keras.models.Sequential(layers)
+def load_keras(model_name, input_shape, num_actions):
+    return getattr(keras_models, model_name)(input_shape, num_actions)
