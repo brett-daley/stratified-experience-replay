@@ -6,7 +6,7 @@ from pretrained_models import load_keras
 
 
 def main():
-    env = atari_env.make('PongNoFrameskip-v4')
+    env = atari_env.make('pong', seed=0)
     model = load_keras('vgg16', input_shape=env.observation_space.shape,
                        num_actions=env.action_space.n)
     linear_qlearning.train(env, model)

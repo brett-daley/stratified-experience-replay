@@ -8,7 +8,7 @@ def main():
         os.mkdir('pong_images')
 
     # Create environment and use wrappers in atari_env.py
-    env = atari_env.make('PongNoFrameskip-v4')
+    env = atari_env.make('pong', seed=0)
     env.reset()
 
     num_images = 1_000_000
