@@ -1,6 +1,6 @@
 import atari_env
 import os
-from PIL import Image
+import cv2
 
 
 def take_pics(num_images, env_name, folder_path='game_images/'):
@@ -9,13 +9,14 @@ def take_pics(num_images, env_name, folder_path='game_images/'):
         os.mkdir(folder_path)
 
     # Create environment and use wrappers in atari_env.py
-    env = atari_env.make(env_name)
+    env = atari_env.make(env_name, seed=0)
     observation = env.reset()
 
     for i in range(num_images):
         # Save image to file
         name_string = folder_path + 'img_' + str(i+1) + '.png'
-        Image.fromarray((observation * 255).astype('uint8'), mode='RGB').save(name_string)
+        observation = cv2.cvtColor(observation, cv2.COLOR_BGR2RGB)
+        cv2.imwrite(name_string, observation)
 
         # Take random action
         action = env.action_space.sample()
@@ -25,6 +26,5 @@ def take_pics(num_images, env_name, folder_path='game_images/'):
         if done:
             env.reset()
 
-
 if __name__ == '__main__':
-    take_pics(num_images=1_000_000, env_name='PongNoFrameskip-v4', folder_path='game_images/')
+    take_pics(num_images=1_000_000, env_name='pong', folder_path='game_images/')

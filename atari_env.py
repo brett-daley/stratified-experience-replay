@@ -9,7 +9,7 @@ def make(env_name, seed):
     env = AtariEnv(game=env_name, frameskip=4, obs_type='image')
 
     if 'FIRE' in env.unwrapped.get_action_meanings():
-        env = FireResetEnv(env)
+        env = FireResetWrapper(env)
     env = NoopResetWrapper(env)
     env = EpisodicLifeWrapper(env)
     env = ClippedRewardWrapper(env)
@@ -49,7 +49,7 @@ class EpisodicLifeWrapper(gym.Wrapper):
         self.lives = self.env.unwrapped.ale.lives()
         return self.observation
 
-class FireResetEnv(gym.Wrapper):
+class FireResetWrapper(gym.Wrapper):
     '''Take action on reset for environments that are fixed until firing.'''
     def __init__(self, env):
         assert env.unwrapped.get_action_meanings()[1] == 'FIRE'
