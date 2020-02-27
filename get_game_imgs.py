@@ -27,4 +27,4 @@ def take_pics(num_images, env_name):
 
 
 if __name__ == '__main__':
-    take_pics(num_images=10_000, env_name='PongNoFrameskip-v4')
+    take_pics(num_images=1_000_000, env_name='PongNoFrameskip-v4')
