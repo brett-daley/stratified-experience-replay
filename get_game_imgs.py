@@ -4,7 +4,7 @@ import cv2
 import argparse
 
 
-def take_pics(num_images, env_name, folder_path='game_images/'):
+def take_pics(num_images, env_name, folder_path):
     # Check if images folder exists; if not, create one
     if not os.path.exists(folder_path):
         os.mkdir(folder_path)
