@@ -77,7 +77,7 @@ class NoopResetWrapper(gym.Wrapper):
 
 class PreprocessedImageWrapper(gym.ObservationWrapper):
     '''Resizes image observations. Optionally converts them to grayscale if requested.'''
-    def __init__(self, env, size=84, grayscale=False):
+    def __init__(self, env, size=128, grayscale=False):
         super().__init__(env)
         self.size = size
         self.grayscale = grayscale
