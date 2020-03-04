@@ -59,12 +59,23 @@ autoencoder = keras.Sequential(encoder_layers + decoder_layers)
 autoencoder.summary()
 autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
 
+num_epochs = 50
+b_size = 128
+num_samples = len(train_images) + len(test_images)
+
 autoencoder.fit(train_images, train_images,
-                epochs=3,
-                batch_size=128,
+                epochs=num_epochs,
+                batch_size=b_size,
                 shuffle=True,
                 validation_data=(test_images, test_images),
                 verbose=1)
+
+# autoencoder.fit(train_images, train_images,
+#                 epochs=50,
+#                 batch_size=128,
+#                 shuffle=True,
+#                 validation_data=(test_images, test_images),
+#                 verbose=1)
 
 fig, ax = plt.subplots(2, 4, figsize=(16, 8))
 for i, ind in enumerate([0, 10, 20, 30]):
@@ -76,3 +87,7 @@ for i, ind in enumerate([0, 10, 20, 30]):
     ax[1, i].set_title('reconstructed')
 
 plt.show()
+
+# Save autoencoder
+autoencoder.save('savedautoencoder_samples{}_epochs{}_batchsize{}.h5'.format(num_samples, num_epochs, b_size))
+print("autoencoder saved to", 'savedautoencoder_samples{}_epochs{}_batchsize{}.h5'.format(num_samples, num_epochs, b_size))
