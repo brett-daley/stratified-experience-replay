@@ -1,15 +1,13 @@
-
 import tensorflow as tf
 import numpy as np
 import imageio
 import glob
 import matplotlib.pyplot as plt
-
 keras = tf.keras
 
 # CH: Had to do this to prevent duplication error in libiomp5.dylib on my machine
 import os
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Load images into images_album
 single_pic_path = './pic_file/img_1.png'
@@ -22,50 +20,48 @@ images_album = np.empty(shape=(num_images, image_shape[0], image_shape[1], image
 
 i = 0
 for im_path in glob.glob('./pic_file/*.png'):
-     images_album[i, :, :, :] = imageio.imread(im_path)
-     i += 1
+    images_album[i, :, :, :] = imageio.imread(im_path)
+    i += 1
 
-# rescale the image into a range of [0,1]
+# rescale the image into a range of [0,1], and convert to np array
 images_album /= 255.
+np_images_album = np.array(images_album)
 
 # Split into train and test batches
-train_images = images_album[0:int(np.floor(0.8 * num_images)), :, :, :]
-test_images = images_album[int(np.floor(0.8 * num_images)):, :, :, :]
+train_images = np_images_album[0:int(np.floor(0.8 * num_images)), :, :, :]
+test_images = np_images_album[int(np.floor(0.8 * num_images)):, :, :, :]
 
-image_shape_flat = image_shape[0]*image_shape[1]*image_shape[2]
+image_shape_flat = image_shape[0] * image_shape[1] * image_shape[2]
 
 encoder_layers = [
     keras.layers.InputLayer(image_shape),
-    keras.layers.Conv2D(512, kernel_size=3, activation='relu', padding='same'),
-    keras.layers.MaxPooling2D((2,2), padding='same'),
-    keras.layers.Conv2D(256, kernel_size=3, activation='relu', padding='same'),
-    keras.layers.MaxPooling2D((2, 2), padding='same'),
-    keras.layers.Conv2D(128, kernel_size=7, activation='relu', padding='same'),
-    keras.layers.MaxPooling2D((2, 2), padding='same'),
-    keras.layers.Conv2D(32, kernel_size=7, activation='relu', padding='same'),
-    keras.layers.MaxPooling2D((2, 2), padding='same')
+    keras.layers.Conv2D(32, kernel_size=7, strides=4, activation='relu', padding='same'),
+    keras.layers.Conv2D(128, kernel_size=7, strides=4, activation='relu', padding='same'),
+    keras.layers.Conv2D(256, kernel_size=3, strides=2, activation='relu', padding='same'),
+    keras.layers.Conv2D(512, kernel_size=3, strides=2, activation='relu', padding='same'),
+    keras.layers.Flatten()
 ]
 
 decoder_layers = [
-    keras.layers.Conv2D(32, kernel_size=7, activation='relu', padding='same'),
-    keras.layers.UpSampling2D(size=(2,2)),
-    keras.layers.Conv2D(128, kernel_size=7, activation='relu', padding='same'),
-    keras.layers.UpSampling2D(size=(2,2)),
-    keras.layers.Conv2D(256, kernel_size=3, activation='relu', padding='same'),
-    keras.layers.UpSampling2D(size=(2,2)),
+    keras.layers.Reshape(target_shape=(2, 2, 512)),
     keras.layers.Conv2D(512, kernel_size=3, activation='relu', padding='same'),
     keras.layers.UpSampling2D(size=(2, 2)),
-    keras.layers.Conv2D(3, kernel_size=3, activation='sigmoid', padding='same')
+    keras.layers.Conv2D(256, kernel_size=3, activation='relu', padding='same'),
+    keras.layers.UpSampling2D(size=(2, 2)),
+    keras.layers.Conv2D(128, kernel_size=7, activation='relu', padding='same'),
+    keras.layers.UpSampling2D(size=(4, 4)),
+    keras.layers.Conv2D(32, kernel_size=7, activation='relu', padding='same'),
+    keras.layers.UpSampling2D(size=(4, 4)),
+    keras.layers.Conv2D(3, kernel_size=3, activation='sigmoid', padding='same'),
 ]
-
 
 autoencoder = keras.Sequential(encoder_layers + decoder_layers)
 autoencoder.summary()
 autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
 
 autoencoder.fit(train_images, train_images,
-                epochs=10,
-                batch_size=23,
+                epochs=3,
+                batch_size=128,
                 shuffle=True,
                 validation_data=(test_images, test_images),
                 verbose=1)
@@ -80,4 +76,3 @@ for i, ind in enumerate([0, 10, 20, 30]):
     ax[1, i].set_title('reconstructed')
 
 plt.show()
-
