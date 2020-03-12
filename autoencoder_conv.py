@@ -9,29 +9,17 @@ keras = tf.keras
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-# Load images into images_album
-single_pic_path = './pic_file/img_1.png'
-pic_folder_path = './pic_file/*.png'
-im = imageio.imread(single_pic_path)
-image_shape = im.shape
-
-num_images = len([file for file in glob.glob(pic_folder_path)])
-images_album = np.empty(shape=(num_images, image_shape[0], image_shape[1], image_shape[2]))
-
-i = 0
-for im_path in glob.glob('./pic_file/*.png'):
-    images_album[i, :, :, :] = imageio.imread(im_path)
-    i += 1
+# Load images from NumPy array
+images_album = np.load('pics_as_array.npy')
+num_images = len(images_album)
+image_shape = images_album[0].shape
 
 # rescale the image into a range of [0,1], and convert to np array
 images_album /= 255.
-np_images_album = np.array(images_album)
 
 # Split into train and test batches
-train_images = np_images_album[0:int(np.floor(0.8 * num_images)), :, :, :]
-test_images = np_images_album[int(np.floor(0.8 * num_images)):, :, :, :]
-
-image_shape_flat = image_shape[0] * image_shape[1] * image_shape[2]
+train_images = images_album[0:int(np.floor(0.8 * num_images)), :, :, :]
+test_images = images_album[int(np.floor(0.8 * num_images)):, :, :, :]
 
 encoder_layers = [
     keras.layers.InputLayer(image_shape),
@@ -44,20 +32,16 @@ encoder_layers = [
 
 decoder_layers = [
     keras.layers.Reshape(target_shape=(2, 2, 512)),
-    keras.layers.Conv2D(512, kernel_size=3, activation='relu', padding='same'),
-    keras.layers.UpSampling2D(size=(2, 2)),
-    keras.layers.Conv2D(256, kernel_size=3, activation='relu', padding='same'),
-    keras.layers.UpSampling2D(size=(2, 2)),
-    keras.layers.Conv2D(128, kernel_size=7, activation='relu', padding='same'),
-    keras.layers.UpSampling2D(size=(4, 4)),
-    keras.layers.Conv2D(32, kernel_size=7, activation='relu', padding='same'),
-    keras.layers.UpSampling2D(size=(4, 4)),
-    keras.layers.Conv2D(3, kernel_size=3, activation='sigmoid', padding='same'),
+    keras.layers.Conv2DTranspose(512, kernel_size=3, strides=2, activation='relu', padding='same'),
+    keras.layers.Conv2DTranspose(256, kernel_size=3, strides=2, activation='relu', padding='same'),
+    keras.layers.Conv2DTranspose(128, kernel_size=7, strides=4, activation='relu', padding='same'),
+    keras.layers.Conv2DTranspose(32, kernel_size=7, strides=4, activation='relu', padding='same'),
+    keras.layers.Conv2DTranspose(3, kernel_size=3, strides=1, activation='linear', padding='same'),
 ]
 
 autoencoder = keras.Sequential(encoder_layers + decoder_layers)
 autoencoder.summary()
-autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
+autoencoder.compile(optimizer='adam', loss='mean_squared_error')
 
 num_epochs = 50
 b_size = 128
