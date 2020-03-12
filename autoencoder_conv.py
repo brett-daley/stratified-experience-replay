@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.keras.layers import Conv2D, Conv2DTranspose, Flatten, InputLayer, Reshape
 import numpy as np
 import imageio
 import glob
@@ -22,21 +23,20 @@ train_images = images_album[0:int(np.floor(0.8 * num_images)), :, :, :]
 test_images = images_album[int(np.floor(0.8 * num_images)):, :, :, :]
 
 encoder_layers = [
-    keras.layers.InputLayer(image_shape),
-    keras.layers.Conv2D(32, kernel_size=7, strides=4, activation='relu', padding='same'),
-    keras.layers.Conv2D(128, kernel_size=7, strides=4, activation='relu', padding='same'),
-    keras.layers.Conv2D(256, kernel_size=3, strides=2, activation='relu', padding='same'),
-    keras.layers.Conv2D(512, kernel_size=3, strides=2, activation='relu', padding='same'),
-    keras.layers.Flatten()
+    InputLayer(image_shape),
+    Conv2D(32,  kernel_size=7, strides=4, activation='relu', padding='same'),
+    Conv2D(128, kernel_size=7, strides=4, activation='relu', padding='same'),
+    Conv2D(256, kernel_size=3, strides=2, activation='relu', padding='same'),
+    Conv2D(512, kernel_size=3, strides=2, activation='relu', padding='same'),
+    Flatten()
 ]
 
 decoder_layers = [
-    keras.layers.Reshape(target_shape=(2, 2, 512)),
-    keras.layers.Conv2DTranspose(512, kernel_size=3, strides=2, activation='relu', padding='same'),
-    keras.layers.Conv2DTranspose(256, kernel_size=3, strides=2, activation='relu', padding='same'),
-    keras.layers.Conv2DTranspose(128, kernel_size=7, strides=4, activation='relu', padding='same'),
-    keras.layers.Conv2DTranspose(32, kernel_size=7, strides=4, activation='relu', padding='same'),
-    keras.layers.Conv2DTranspose(3, kernel_size=3, strides=1, activation='linear', padding='same'),
+    Reshape(target_shape=(2, 2, 512)),
+    Conv2DTranspose(256, kernel_size=3, strides=2, activation='relu',   padding='same'),
+    Conv2DTranspose(128, kernel_size=3, strides=2, activation='relu',   padding='same'),
+    Conv2DTranspose(32,  kernel_size=7, strides=4, activation='relu',   padding='same'),
+    Conv2DTranspose(3,   kernel_size=7, strides=4, activation='linear', padding='same'),
 ]
 
 autoencoder = keras.Sequential(encoder_layers + decoder_layers)
