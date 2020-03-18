@@ -19,8 +19,8 @@ image_shape = images_album[0].shape
 images_album /= 255.
 
 # Split into train and test batches
-train_images = images_album[0:int(np.floor(0.8 * num_images)), :, :, :]
-test_images = images_album[int(np.floor(0.8 * num_images)):, :, :, :]
+train_images = images_album[:int(np.floor(0.8 * num_images))]
+test_images = images_album[int(np.floor(0.8 * num_images)):]
 
 encoder_layers = [
     InputLayer(image_shape),
@@ -53,13 +53,6 @@ autoencoder.fit(train_images, train_images,
                 shuffle=True,
                 validation_data=(test_images, test_images),
                 verbose=1)
-
-# autoencoder.fit(train_images, train_images,
-#                 epochs=50,
-#                 batch_size=128,
-#                 shuffle=True,
-#                 validation_data=(test_images, test_images),
-#                 verbose=1)
 
 fig, ax = plt.subplots(2, 4, figsize=(16, 8))
 for i, ind in enumerate([0, 10, 20, 30]):

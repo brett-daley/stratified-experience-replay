@@ -23,14 +23,14 @@ def save_to_np(input_dir, output_path):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Converts Atari screenshots to single numpy array')
-    parser.add_argument('input_dir', type=str,
-                        help='name of directory with images (ex: ./pic_file)')
-    parser.add_argument('output_path', type=str,
-                        help='destination file for saved NumPy array (ex: pics_as_np)')
+    parser = argparse.ArgumentParser(description='Converts images to single numpy array')
+    parser.add_argument('input_dir', default='./pic_file', type=str,
+                        help='name of directory with images (default: ./pic_file)')
+    parser.add_argument('output_path', default='pics_as_np', type=str,
+                        help='destination file for saved NumPy array (default: pics_as_np)')
 
     args = parser.parse_args()
 
     save_to_np(input_dir=args.input_dir, output_path=args.output_path)
 
-    print("Screenshots saved to file!")
+    print("Screenshots saved to file")
