@@ -15,9 +15,9 @@ def take_pics(num_images, env_name, folder_path):
 
     for i in range(num_images):
         # Save image to file
-        name_string = folder_path + 'img_' + str(i + 1) + '.png'
+        image_path = os.path.join(folder_path, f'img_{i+1}.png')
         observation = cv2.cvtColor(observation, cv2.COLOR_BGR2RGB)
-        cv2.imwrite(name_string, observation)
+        cv2.imwrite(image_path, observation)
 
         # Take random action
         action = env.action_space.sample()
