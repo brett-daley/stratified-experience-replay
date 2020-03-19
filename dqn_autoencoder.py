@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.keras.layers import Dense
 from tensorflow.keras.models import Sequential, clone_model
 import numpy as np
 import argparse
@@ -8,6 +9,7 @@ os.environ['TF_DETERMINISTIC_OPS'] = '1'
 import atari_env
 from dqn_original import DQNAgent, ReplayMemory, epsilon_schedule
 from autoencoder_conv import encoder_layers, decoder_layers
+from pretrained_models.model_editor import make_untrainable
 
 
 class AutoencoderAgent(DQNAgent):
@@ -19,11 +21,11 @@ class AutoencoderAgent(DQNAgent):
         input_shape = env.observation_space.shape
         self.n_actions = env.action_space.n
 
-        self.encoder = Sequential(encoder_layers, name='Encoder')
+        self.encoder = Sequential(encoder_layers(), name='Encoder')
         self.encoder.build([None, 128, 128, 3])
         print(self.encoder.summary())
 
-        self.decoder = Sequential(decoder_layers, name='Decoder')
+        self.decoder = Sequential(decoder_layers(), name='Decoder')
         self.decoder.build([None, 128, 128, 3])
         print(self.decoder.summary())
 
@@ -33,7 +35,7 @@ class AutoencoderAgent(DQNAgent):
 
         self.target_q_function = clone_model(self.q_function)
         self.target_q_function._name = 'Target Q-Function'
-        self.target_q_function.layers[0].trainable = False
+        make_untrainable(self.target_q_function)
         self.target_q_function.build([None, 2048])
         print(self.target_q_function.summary())
 

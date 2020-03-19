@@ -11,7 +11,7 @@ from autoencoder_conv import encoder_layers
 
 def make_q_function(input_shape, n_actions):
     layers = [InputLayer(input_shape),
-              *encoder_layers,
+              *encoder_layers(),
               Dense(n_actions)]
     return tf.keras.models.Sequential(layers)
 
