@@ -36,24 +36,32 @@ class DQNAgent:
             return self.env.action_space.sample()
         return self._greedy_action(observation).numpy()
 
+    def _preprocess(self, observation):
+        return tf.cast(observation, tf.float32) / 255.0
+
+    def _q_values(self, observation):
+        return self.q_function(observation)
+
+    def _target_q_values(self, next_observation):
+        return self.target_q_function(next_observation)
+
     @tf.function
     def _greedy_action(self, observation):
-        observation = tf.cast(observation, tf.float32) / 255.0
-
-        q_values = self.q_function(observation[None])
+        observation = self._preprocess(observation)
+        q_values = self._q_values(observation[None])
         return tf.argmax(q_values, axis=1)[0]
 
     @tf.function
     def train(self, observations, actions, rewards, dones, next_observations):
-        observations = tf.cast(observations, tf.float32) / 255.0
-        next_observations = tf.cast(next_observations, tf.float32) / 255.0
+        observations = self._preprocess(observations)
+        next_observations = self._preprocess(next_observations)
 
         with tf.GradientTape() as tape:
-            q_values = self.q_function(observations)
+            q_values = self._q_values(observations)
             action_mask = tf.one_hot(actions, depth=self.n_actions)
             q_values = tf.reduce_sum(action_mask * q_values, axis=1)
 
-            target_q_values = self.target_q_function(next_observations)
+            target_q_values = self._target_q_values(next_observations)
             done_mask = (1.0 - dones)
             returns = rewards + done_mask * self.discount * tf.reduce_max(target_q_values, axis=1)
             loss = tf.reduce_mean(tf.square(returns - q_values))
