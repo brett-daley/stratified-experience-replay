@@ -1,20 +1,17 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, Dense, Flatten, InputLayer
+from tensorflow.keras.layers import Dense, InputLayer
 import numpy as np
 import argparse
 import os
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
 import atari_env
+from autoencoder_conv import encoder_layers
 
 
 def make_q_function(input_shape, n_actions):
     layers = [InputLayer(input_shape),
-              Conv2D(32, kernel_size=8, strides=4, activation='relu'),
-              Conv2D(64, kernel_size=4, strides=2, activation='relu'),
-              Conv2D(64, kernel_size=3, strides=1, activation='relu'),
-              Flatten(),
-              Dense(512, activation='relu'),
+              *encoder_layers,
               Dense(n_actions)]
     return tf.keras.models.Sequential(layers)
 

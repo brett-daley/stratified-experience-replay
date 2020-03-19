@@ -1,5 +1,4 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, Dense, Flatten, InputLayer
 import numpy as np
 import argparse
 import os
