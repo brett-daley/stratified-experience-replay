@@ -1,17 +1,20 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, InputLayer
+from tensorflow.keras.layers import Conv2D, Dense, Flatten, InputLayer
 import numpy as np
 import argparse
 import os
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
 import atari_env
-from autoencoder_conv import encoder_layers
 
 
 def make_q_function(input_shape, n_actions):
     layers = [InputLayer(input_shape),
-              *encoder_layers(),
+              Conv2D(32, kernel_size=8, strides=4, activation='relu'),
+              Conv2D(64, kernel_size=4, strides=2, activation='relu'),
+              Conv2D(64, kernel_size=3, strides=1, activation='relu'),
+              Flatten(),
+              Dense(512, activation='relu'),
               Dense(n_actions)]
     return tf.keras.models.Sequential(layers)
 
@@ -52,7 +55,10 @@ class DQNAgent:
         q_values = self._q_values(observation[None])
         return tf.argmax(q_values, axis=1)[0]
 
-    def train_step(self, t):
+    def update(self, t):
+        if (t % 10_000) == 0:
+            self.copy_target_network()
+
         if (t % 4) == 0:
             minibatch = self.replay_memory.sample()
             self._train(*minibatch)
@@ -82,8 +88,10 @@ class DQNAgent:
 
 
 class BatchmodeDQNAgent(DQNAgent):
-    def train_step(self, t):
+    def update(self, t):
         if (t % 10_000) == 0:
+            self.copy_target_network()
+
             for _ in range(2500):
                 minibatch = self.replay_memory.sample()
                 self._train(*minibatch)
@@ -118,15 +126,14 @@ def epsilon_schedule(t, timeframe=1_000_000, min_epsilon=0.1):
     return np.clip(1.0 - (1.0 - min_epsilon) * (t / timeframe), min_epsilon, 1.0)
 
 
-def train(env_name, agent_cls, timesteps, seed):
+def train(env, agent_cls, timesteps, seed):
     tf.random.set_seed(seed)
     np.random.seed(seed)
 
-    env = atari_env.make(env_name, seed)
     agent = agent_cls(env)
     observation = env.reset()
 
-    print(f'Training {agent_cls.__name__} on {env_name} for {timesteps} timesteps with seed={seed}')
+    print(f'Training {agent_cls.__name__} on {env.unwrapped.game} for {timesteps} timesteps with seed={seed}')
     print('timestep', 'episode', 'avg_return', 'epsilon', sep='  ', flush=True)
     for t in range(-50_000, timesteps+1):  # Relative to training start
         epsilon = epsilon_schedule(t)
@@ -136,10 +143,7 @@ def train(env_name, agent_cls, timesteps, seed):
                 rewards = env.get_episode_rewards()
                 print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}', flush=True)
 
-            if (t % 10_000) == 0:
-                agent.copy_target_network()
-
-            agent.train_step(t)
+            agent.update(t)
 
         action = agent.policy(observation, epsilon)
         new_observation, reward, done, _ = env.step(action)
@@ -163,5 +167,6 @@ if __name__ == '__main__':
                         help='(flag) Activates batch training if present. Default: disabled')
     args = parser.parse_args()
 
+    env = atari_env.make(args.env, args.seed)
     agent_cls = BatchmodeDQNAgent if args.batchmode else DQNAgent
-    train(args.env, agent_cls, args.timesteps, args.seed)
+    train(env, agent_cls, args.timesteps, args.seed)

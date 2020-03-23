@@ -46,7 +46,7 @@ class AutoencoderAgent(DQNAgent):
     def _target_q_values(self, next_observation):
         return self.q_function(self.encoder(next_observation))
 
-    def train_step(self, t):
+    def update(self, t):
         if (t % 10_000) == 0:
             for _ in range(2500):
                 observations, _, _, _, _ = self.replay_memory.sample()
@@ -74,4 +74,5 @@ if __name__ == '__main__':
     add_common_args(parser)
     args = parser.parse_args()
 
-    train(args.env, AutoencoderAgent, args.timesteps, args.seed)
+    env = atari_env.make(args.env, args.seed, size=128, grayscale=False, history_len=1)
+    train(env, AutoencoderAgent, args.timesteps, args.seed)
