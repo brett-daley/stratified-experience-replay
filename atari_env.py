@@ -5,15 +5,17 @@ import numpy as np
 from collections import deque
 import cv2
 
-def make(env_name, seed):
-    env = AtariEnv(game=env_name, frameskip=4, obs_type='image')
+def make(game, seed, size=84, grayscale=True, history_len=4):
+    env = AtariEnv(game, frameskip=4, obs_type='image')
 
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetWrapper(env)
     env = NoopResetWrapper(env)
     env = EpisodicLifeWrapper(env)
     env = ClippedRewardWrapper(env)
-    env = PreprocessedImageWrapper(env)
+    env = PreprocessedImageWrapper(env, size, grayscale)
+    if history_len > 1:
+        env = HistoryWrapper(env, history_len)
     env = Monitor(env, directory='monitor', force=True, video_callable=lambda e: False)
 
     env.seed(seed)
@@ -60,6 +62,36 @@ class FireResetWrapper(gym.Wrapper):
         observation, _, _, _ = self.step(1)
         return observation
 
+class HistoryWrapper(gym.Wrapper):
+    '''Stacks the previous `history_len` observations along their last axis.
+    Pads observations with zeros at the beginning of an episode.'''
+    def __init__(self, env, history_len=4):
+        assert history_len > 1
+        super().__init__(env)
+        self.history_len = history_len
+        self.deque = deque(maxlen=history_len)
+
+        self.shape = self.observation_space.shape
+        self.observation_space.shape = (*self.shape[:-1], history_len * self.shape[-1])
+
+    def step(self, action):
+        observation, reward, done, info = self.env.step(action)
+        self.deque.append(observation)
+        return self._history(), reward, done, info
+
+    def reset(self):
+        observation = self.env.reset()
+        self._clear()
+        self.deque.append(observation)
+        return self._history()
+
+    def _history(self):
+        return np.concatenate(list(self.deque), axis=-1)
+
+    def _clear(self):
+        for _ in range(self.history_len):
+            self.deque.append(np.zeros(self.shape))
+
 class NoopResetWrapper(gym.Wrapper):
     '''Sample initial states by taking a random number of no-ops on reset.
     The number is sampled uniformly from [0, `noop_max`].'''
@@ -76,8 +108,8 @@ class NoopResetWrapper(gym.Wrapper):
         return observation
 
 class PreprocessedImageWrapper(gym.ObservationWrapper):
-    '''Resizes image observations. Optionally converts them to grayscale if requested.'''
-    def __init__(self, env, size=128, grayscale=False):
+    '''Resizes image observations and optionally converts them to grayscale.'''
+    def __init__(self, env, size=84, grayscale=True):
         super().__init__(env)
         self.size = size
         self.grayscale = grayscale

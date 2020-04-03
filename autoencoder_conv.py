@@ -11,21 +11,19 @@ import argparse
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-encoder_layers = [
-    Conv2D(32,  kernel_size=7, strides=4, activation='relu', padding='same'),
-    Conv2D(128, kernel_size=7, strides=4, activation='relu', padding='same'),
-    Conv2D(256, kernel_size=3, strides=2, activation='relu', padding='same'),
-    Conv2D(512, kernel_size=3, strides=2, activation='relu', padding='same'),
-    Flatten()
-]
+def encoder_layers():
+    return [Conv2D(32,  kernel_size=7, strides=4, activation='relu', padding='same'),
+            Conv2D(128, kernel_size=7, strides=4, activation='relu', padding='same'),
+            Conv2D(256, kernel_size=3, strides=2, activation='relu', padding='same'),
+            Conv2D(512, kernel_size=3, strides=2, activation='relu', padding='same'),
+            Flatten()]
 
-decoder_layers = [
-    Reshape(target_shape=(2, 2, 512)),
-    Conv2DTranspose(256, kernel_size=3, strides=2, activation='relu',   padding='same'),
-    Conv2DTranspose(128, kernel_size=3, strides=2, activation='relu',   padding='same'),
-    Conv2DTranspose(32,  kernel_size=7, strides=4, activation='relu',   padding='same'),
-    Conv2DTranspose(3,   kernel_size=7, strides=4, activation='linear', padding='same'),
-]
+def decoder_layers():
+    return [Reshape(target_shape=(2, 2, 512)),
+            Conv2DTranspose(256, kernel_size=3, strides=2, activation='relu',   padding='same'),
+            Conv2DTranspose(128, kernel_size=3, strides=2, activation='relu',   padding='same'),
+            Conv2DTranspose(32,  kernel_size=7, strides=4, activation='relu',   padding='same'),
+            Conv2DTranspose(3,   kernel_size=7, strides=4, activation='linear', padding='same')]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -49,7 +47,7 @@ if __name__ == '__main__':
     train_images = images_album[:int(np.floor(0.8 * num_images))]
     test_images = images_album[int(np.floor(0.8 * num_images)):]
 
-    layers = [InputLayer(image_shape)] + encoder_layers + decoder_layers
+    layers = [InputLayer(image_shape)] + encoder_layers() + decoder_layers()
     autoencoder = Sequential(layers)
     print(autoencoder.summary())
     autoencoder.compile(optimizer='adam', loss='mean_squared_error')
