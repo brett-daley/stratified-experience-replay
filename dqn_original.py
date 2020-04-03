@@ -90,11 +90,20 @@ class DQNAgent:
 class BatchmodeDQNAgent(DQNAgent):
     def update(self, t):
         if (t % 10_000) == 0:
-            self.copy_target_network()
+            # self.copy_target_network()
+            #
+            # for _ in range(2500):
+            #     minibatch = self.replay_memory.sample()
+            #     self._train(*minibatch)
 
-            for _ in range(2500):
-                minibatch = self.replay_memory.sample()
-                self._train(*minibatch)
+            n = 2
+            # n = 3
+            # n = 4
+            for _ in range(n):
+                self.copy_target_network()
+                for _ in range(2500//n):
+                    minibatch = self.replay_memory.sample()
+                    self._train(*minibatch)
 
 
 class ReplayMemory:
@@ -123,8 +132,9 @@ class ReplayMemory:
 
 
 def epsilon_schedule(t, timeframe=1_000_000, min_epsilon=0.1):
-    return np.clip(1.0 - (1.0 - min_epsilon) * (t / timeframe), min_epsilon, 1.0)
-
+    # return np.clip(1.0 - (1.0 - min_epsilon) * (t / timeframe), min_epsilon, 1.0)
+    # epsilon set constant at 0.1
+    return 0.1
 
 def train(env, agent_cls, timesteps, seed):
     tf.random.set_seed(seed)
@@ -135,7 +145,7 @@ def train(env, agent_cls, timesteps, seed):
 
     print(f'Training {agent_cls.__name__} on {env.unwrapped.game} for {timesteps} timesteps with seed={seed}')
     print('timestep', 'episode', 'avg_return', 'epsilon', sep='  ', flush=True)
-    for t in range(-50_000, timesteps+1):  # Relative to training start
+    for t in range(-250_000, timesteps+1):  # Relative to training start
         epsilon = epsilon_schedule(t)
 
         if t >= 0:
