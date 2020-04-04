@@ -1,0 +1,7 @@
+2020-04-03 21:44:50.747956: I tensorflow/core/platform/cpu_feature_guard.cc:145] This TensorFlow binary is optimized with Intel(R) MKL-DNN to use the following CPU instructions in performance critical operations:  SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA
+To enable them in non-MKL-DNN operations, rebuild TensorFlow with the appropriate compiler flags.
+2020-04-03 21:44:50.761284: I tensorflow/core/platform/profile_utils/cpu_utils.cc:94] CPU Frequency: 2600000000 Hz
+2020-04-03 21:44:50.761369: I tensorflow/compiler/xla/service/service.cc:168] XLA service 0x5609f2ffe490 executing computations on platform Host. Devices:
+2020-04-03 21:44:50.761392: I tensorflow/compiler/xla/service/service.cc:175]   StreamExecutor device (0): Host, Default Version
+2020-04-03 21:44:50.761536: I tensorflow/core/common_runtime/process_util.cc:115] Creating new thread pool with default inter op setting: 2. Tune using inter_op_parallelism_threads for best performance.
+slurmstepd: error: *** JOB 51099380 ON holygpu2c0712 CANCELLED AT 2020-04-04T05:44:19 DUE TO TIME LIMIT ***
