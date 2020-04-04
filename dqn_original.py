@@ -164,8 +164,8 @@ def train(env, agent_cls, timesteps, seed):
 def add_common_args(parser):
     parser.add_argument('--env', type=str, default='pong',
                         help='(str) Name of Atari game. Default: pong')
-    parser.add_argument('--timesteps', type=int, default=5_000_000,
-                        help='(int) Training duration. Default: 5_000_000')
+    parser.add_argument('--timesteps', type=int, default=3_000_000,
+                        help='(int) Training duration. Default: 3_000_000')
     parser.add_argument('--seed', type=int, default=0,
                         help='(int) Seed for random number generation. Default: 0')
 
