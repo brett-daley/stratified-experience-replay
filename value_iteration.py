@@ -1,9 +1,10 @@
 import numpy as np
+import itertools
 
 
 class TabularEnv:
-    def __init__(self, mdp_path):
-        mdp = np.loadtxt(mdp_path)
+    def __init__(self, mdp_file):
+        mdp = np.loadtxt(mdp_file)
 
         self.S = S = int(max(np.maximum(mdp[:, 0], mdp[:, 2]))) + 1
         self.A = A = int(mdp[:, 1].max()) + 1
@@ -46,11 +47,15 @@ class ValueIterationAgent:
     def __init__(self, env, discount=0.9):
         self.env = env
         self.discount = discount
-        self._values = np.zeros(shape=[env.S], dtype=np.float32)
-        self._policy = np.zeros(shape=[env.S], dtype=np.int32)
+        self.values = np.zeros(shape=[env.S], dtype=np.float32)
+        self._copy()
 
     def _copy(self):
-        self._old_values = self._values.copy()
+        self._old_values = self.values.copy()
+
+    def delta(self):
+        assert not (np.allclose(self.values, 0.0) and np.allclose(self._old_values, 0.0))
+        return np.abs(self.values - self._old_values).max()
 
     def update_with_sweep(self):
         self._copy()
@@ -62,7 +67,7 @@ class ValueIterationAgent:
                 for s2 in self.env.states():
                     avg += self.env.model(s1, a, s2) * (self.env.reward(s1, a, s2) + self.discount * self._old_values[s2])
                 best = max(avg, best)
-            self._values[s1] = best
+            self.values[s1] = best
 
     def update_with_samples(self, n):
         self._copy()
@@ -77,22 +82,42 @@ class ValueIterationAgent:
                     avg += self.env.reward(s1, a, s2) + self.discount * self._old_values[s2]
                 avg /= n
                 best = max(avg, best)
-            self._values[s1] = best
+            self.values[s1] = best
+
+
+def compute_optimal_values(mdp_file, precision=1e-9):
+    env = TabularEnv(mdp_file)
+    agent = ValueIterationAgent(env)
+
+    while True:
+        agent.update_with_sweep()
+        if agent.delta() < precision:
+            break
+    return agent.values.copy()
+
+
+def mse(values1, values2):
+    return np.mean(np.square(values1 - values2)[:-1])
 
 
 def main():
-    env = TabularEnv('gridworld.mdp')
+    mdp_file = 'gridworld.mdp'
+    optimal_values = compute_optimal_values(mdp_file)
+
+    env = TabularEnv(mdp_file)
     agent = ValueIterationAgent(env)
 
-    for _ in range(100):
-        for s in env.states():
-            v = agent._values[s]
-            print(f'{s:2}: {v:.3f}')
-        print()
+    print('iteration  values  mse')
+    for i in itertools.count():
+        v = agent.values
+        print(f'{i}  {np.around(v, 3)}  {mse(v, optimal_values):.5f}')
 
-        # agent.update_with_sweep()
+        if i == 100:
+            break
+
         agent.update_with_samples(100)
 
 
 if __name__ == '__main__':
+    np.set_printoptions(linewidth=88)
     main()
