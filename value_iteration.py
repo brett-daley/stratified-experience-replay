@@ -35,9 +35,6 @@ class GridworldEnv:
     def reward(self, s1, a, s2):
         return self._reward[s1, a, s2]
 
-    def terminal(self, s1, a, s2):
-        return self._done[s1, a, s2]
-
 
 def main():
     env = GridworldEnv()
