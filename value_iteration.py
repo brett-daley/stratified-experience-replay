@@ -49,8 +49,9 @@ class TabularEnv:
 
 
 class ValueIterationAgent:
-    def __init__(self, env, discount=0.9):
+    def __init__(self, env, nstep, discount=0.9):
         self.env = env
+        self.nstep = nstep
         self.discount = discount
         self.values = np.zeros(shape=[env.S], dtype=np.float32)
         self.policy = np.random.choice(env.actions(), size=env.S)
@@ -71,28 +72,45 @@ class ValueIterationAgent:
             self.policy[s] = np.argmax(returns)
 
     def _full_backup(self, s1, a):
+        if self.nstep != 1:
+            raise NotImplementedError
+
         returns = np.asarray([self.env.reward(s1, a, s2) + (self.discount * self._old_values[s2])
                               for s2 in self.env.states()])
         return (self.env.model(s1, a) * returns).sum()
 
-    def update_with_samples(self, n):
+    def update_with_samples(self, k):
         self._copy()
         for s in self.env.states():
-            returns = [self._sample_backup(s, a, n) for a in self.env.actions()]
+            returns = [self._sample_backup(s, a, k) for a in self.env.actions()]
             self.values[s] = np.max(returns)
             self.policy[s] = np.argmax(returns)
 
-    def _sample_backup(self, s1, a, n):
+    def _sample_backup(self, s, a, k):
         total = 0.0
-        for _ in range(n):
-            s2 = self.env.sample_transition(s1, a)
-            total += self.env.reward(s1, a, s2) + (self.discount * self._old_values[s2])
-        return (total / n)
+        for _ in range(k):
+            total += self._sample_nstep_return(s, a)
+        return (total / k)
+
+    def _sample_nstep_return(self, s1, a):
+        s2 = self.env.sample_transition(s1, a)
+        nstep_return = self.env.reward(s1, a, s2)
+
+        for i in range(1, self.nstep):
+            s1, a, s2 = self._next(s2)
+            nstep_return += pow(self.discount, i) * self.env.reward(s1, a, s2)
+
+        nstep_return += pow(self.discount, self.nstep) * self._old_values[s2]
+        return nstep_return
+
+    def _next(self, s2):
+        a = self.policy[s2]
+        return s2, a, self.env.sample_transition(s2, a)
 
 
 def compute_optimal_values(mdp_file, precision=1e-9):
     env = TabularEnv(mdp_file)
-    agent = ValueIterationAgent(env)
+    agent = ValueIterationAgent(env, nstep=1)
 
     while True:
         agent.update_with_sweep()
@@ -131,7 +149,7 @@ def main():
     optimal_values = compute_optimal_values(mdp_file)
 
     env = TabularEnv(mdp_file)
-    agent = ValueIterationAgent(env)
+    agent = ValueIterationAgent(env, nstep=3)
 
     print('iteration  values  mse  avg_return')
     for i in itertools.count():
