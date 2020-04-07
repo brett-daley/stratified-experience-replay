@@ -26,11 +26,17 @@ class TabularEnv:
     def states(self):
         return range(self.S)
 
+    def random_state(self):
+        return np.random.randrange(self.S)
+
     def actions(self):
         return range(self.A)
 
     def model(self, s1, a, s2):
         return self._model[s1, a, s2]
+
+    def model_distr(self, s1, a):
+        return [self._model[s1, a, s2] for s2 in self.states()]
 
     def reward(self, s1, a, s2):
         return self._reward[s1, a, s2]
@@ -59,7 +65,19 @@ class ValueIterationAgent:
             self._values[s1] = best
 
     def update_with_samples(self, n):
-        raise NotImplementedError
+        self._copy()
+
+        for s1 in self.env.states():
+            best = -float('inf')
+            for a in self.env.actions():
+                avg = 0.0
+                distr = self.env.model_distr(s1, a)
+                for _ in range(n):
+                    s2 = np.random.choice(np.arange(self.env.S), p=distr)
+                    avg += self.env.reward(s1, a, s2) + self.discount * self._old_values[s2]
+                avg /= n
+                best = max(avg, best)
+            self._values[s1] = best
 
 
 def main():
@@ -72,7 +90,8 @@ def main():
             print(f'{s:2}: {v:.3f}')
         print()
 
-        agent.update_with_sweep()
+        # agent.update_with_sweep()
+        agent.update_with_samples(100)
 
 
 if __name__ == '__main__':
