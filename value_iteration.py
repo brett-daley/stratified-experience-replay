@@ -33,14 +33,19 @@ class TabularEnv:
     def actions(self):
         return range(self.A)
 
-    def model(self, s1, a, s2):
-        return self._model[s1, a, s2]
+    def model(self, s1, a):
+        return self._model[s1, a]
 
-    def model_distr(self, s1, a):
-        return [self._model[s1, a, s2] for s2 in self.states()]
+    def sample_transition(self, s1, a):
+        return np.random.choice(self.states(), p=self.model(s1, a))
 
     def reward(self, s1, a, s2):
         return self._reward[s1, a, s2]
+
+    def step(self, s1, a):
+        s2 = self.sample_transition(s1, a)
+        r = self.reward(s1, a, s2)
+        return s2, r
 
 
 class ValueIterationAgent:
@@ -48,6 +53,7 @@ class ValueIterationAgent:
         self.env = env
         self.discount = discount
         self.values = np.zeros(shape=[env.S], dtype=np.float32)
+        self.policy = np.random.choice(env.actions(), size=env.S)
         self._copy()
 
     def _copy(self):
@@ -59,30 +65,29 @@ class ValueIterationAgent:
 
     def update_with_sweep(self):
         self._copy()
+        for s in self.env.states():
+            returns = [self._full_backup(s, a) for a in self.env.actions()]
+            self.values[s] = np.max(returns)
+            self.policy[s] = np.argmax(returns)
 
-        for s1 in self.env.states():
-            best = -float('inf')
-            for a in self.env.actions():
-                avg = 0.0
-                for s2 in self.env.states():
-                    avg += self.env.model(s1, a, s2) * (self.env.reward(s1, a, s2) + self.discount * self._old_values[s2])
-                best = max(avg, best)
-            self.values[s1] = best
+    def _full_backup(self, s1, a):
+        returns = np.asarray([self.env.reward(s1, a, s2) + (self.discount * self._old_values[s2])
+                              for s2 in self.env.states()])
+        return (self.env.model(s1, a) * returns).sum()
 
     def update_with_samples(self, n):
         self._copy()
+        for s in self.env.states():
+            returns = [self._sample_backup(s, a, n) for a in self.env.actions()]
+            self.values[s] = np.max(returns)
+            self.policy[s] = np.argmax(returns)
 
-        for s1 in self.env.states():
-            best = -float('inf')
-            for a in self.env.actions():
-                avg = 0.0
-                distr = self.env.model_distr(s1, a)
-                for _ in range(n):
-                    s2 = np.random.choice(np.arange(self.env.S), p=distr)
-                    avg += self.env.reward(s1, a, s2) + self.discount * self._old_values[s2]
-                avg /= n
-                best = max(avg, best)
-            self.values[s1] = best
+    def _sample_backup(self, s1, a, n):
+        total = 0.0
+        for _ in range(n):
+            s2 = self.env.sample_transition(s1, a)
+            total += self.env.reward(s1, a, s2) + (self.discount * self._old_values[s2])
+        return (total / n)
 
 
 def compute_optimal_values(mdp_file, precision=1e-9):
@@ -100,6 +105,27 @@ def mse(values1, values2):
     return np.mean(np.square(values1 - values2)[:-1])
 
 
+def performance(env, agent, start_state, end_state, n=100, T=300):
+    total_return = 0.0
+
+    for _ in range(n):
+        discount = 1.0
+        s = start_state
+        discounted_return = 0.0
+
+        for t in itertools.count():
+            a = agent.policy[s]
+            s, r = env.step(s, a)
+            discounted_return += discount * r
+            discount *= agent.discount
+            if (s == end_state) or (t == T):
+                break
+
+        total_return += discounted_return
+
+    return (total_return / n)
+
+
 def main():
     mdp_file = 'gridworld.mdp'
     optimal_values = compute_optimal_values(mdp_file)
@@ -107,17 +133,19 @@ def main():
     env = TabularEnv(mdp_file)
     agent = ValueIterationAgent(env)
 
-    print('iteration  values  mse')
+    print('iteration  values  mse  avg_return')
     for i in itertools.count():
         v = agent.values
-        print(f'{i}  {np.around(v, 3)}  {mse(v, optimal_values):.5f}')
+        p = performance(env, agent, 7, 11)
+        print(f'{i}  {np.around(v, 3)}  {mse(v, optimal_values):.5f}  {p:.3f}')
 
-        if i == 100:
+        if i == 20:
             break
 
         agent.update_with_samples(100)
 
 
 if __name__ == '__main__':
+    np.random.seed(0)
     np.set_printoptions(linewidth=88)
     main()
