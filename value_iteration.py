@@ -1,11 +1,11 @@
 import numpy as np
 
 
-class GridworldEnv:
-    def __init__(self):
-        mdp = np.loadtxt('gridworld.mdp')
+class TabularEnv:
+    def __init__(self, mdp_path):
+        mdp = np.loadtxt(mdp_path)
 
-        self.S = S = int(max(mdp[:, 0].max(), mdp[:, 2].max())) + 1
+        self.S = S = int(max(np.maximum(mdp[:, 0], mdp[:, 2]))) + 1
         self.A = A = int(mdp[:, 1].max()) + 1
 
         self._model = np.zeros(shape=(S, A, S))
@@ -36,27 +36,43 @@ class GridworldEnv:
         return self._reward[s1, a, s2]
 
 
+class ValueIterationAgent:
+    def __init__(self, env, discount=0.9):
+        self.env = env
+        self.discount = discount
+        self._values = np.zeros(shape=[env.S], dtype=np.float32)
+        self._policy = np.zeros(shape=[env.S], dtype=np.int32)
+
+    def _copy(self):
+        self._old_values = self._values.copy()
+
+    def update_with_sweep(self):
+        self._copy()
+
+        for s1 in self.env.states():
+            best = -float('inf')
+            for a in self.env.actions():
+                avg = 0.0
+                for s2 in self.env.states():
+                    avg += self.env.model(s1, a, s2) * (self.env.reward(s1, a, s2) + self.discount * self._old_values[s2])
+                best = max(avg, best)
+            self._values[s1] = best
+
+    def update_with_samples(self, n):
+        raise NotImplementedError
+
+
 def main():
-    env = GridworldEnv()
-    discount = 0.9
-    values = np.zeros(shape=[env.S])
+    env = TabularEnv('gridworld.mdp')
+    agent = ValueIterationAgent(env)
 
     for _ in range(100):
         for s in env.states():
-            v = values[s]
+            v = agent._values[s]
             print(f'{s:2}: {v:.3f}')
         print()
 
-        old_values = values.copy()
-
-        for s1 in env.states():
-            best = -float('inf')
-            for a in env.actions():
-                avg = 0.0
-                for s2 in env.states():
-                    avg += env.model(s1, a, s2) * (env.reward(s1, a, s2) + discount * old_values[s2])
-                best = max(avg, best)
-            values[s1] = best
+        agent.update_with_sweep()
 
 
 if __name__ == '__main__':
