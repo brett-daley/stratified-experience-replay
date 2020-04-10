@@ -32,11 +32,6 @@ def make_sh_file(env, n, timesteps, seed, batch_flag):
     on cluster's GPU partition for 4 hours with 1 node, 1 core, and 32GB memory
     """
 
-    if batch_flag:
-        batch = '--batchmode'
-    else:
-        batch = ""
-
     # Reformat env name for output file name
     env_no_underscore = env.replace("_", "")
 
@@ -53,7 +48,7 @@ def make_sh_file(env, n, timesteps, seed, batch_flag):
 #SBATCH -e env-{env_no_underscore}_n-{n}_batchmode-{batch_flag}_seed-{seed}.err.txt  # File to which STDERR will be written, %j inserts jobid
 module load Anaconda3/5.0.1-fasrc01  # Load module
 source activate openaigym  # Switch to openaigym conda environment
-python3 ./dqn_original.py --env {env} --n {n} --timesteps {timesteps} --seed {seed} {batch}  # Run code
+python3 dqn_original.py --env {env} -n {n} --batchmode {batch_flag} --timesteps {timesteps} --seed {seed}  # Run code
 """
         )
         f.close()

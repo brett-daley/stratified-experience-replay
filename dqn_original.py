@@ -4,6 +4,7 @@ import numpy as np
 import argparse
 import os
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
+from distutils.util import strtobool
 
 import atari_env
 
@@ -20,8 +21,13 @@ def make_q_function(input_shape, n_actions):
 
 
 class DQNAgent:
-    def __init__(self, env, discount=0.99):
+    def __init__(self, env, nsteps, discount=0.99):
         self.env = env
+        assert nsteps >= 1
+        if type(self) == DQNAgent and nsteps != 1:
+            # Temporarily forbid n > 1 in base class
+            raise NotImplementedError
+        self.nsteps = nsteps
         self.discount = discount
         self.replay_memory = ReplayMemory(env)
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, epsilon=1e-4)
@@ -90,18 +96,10 @@ class DQNAgent:
 class BatchmodeDQNAgent(DQNAgent):
     def update(self, t):
         if (t % 10_000) == 0:
-            # self.copy_target_network()
-            #
-            # for _ in range(2500):
-            #     minibatch = self.replay_memory.sample()
-            #     self._train(*minibatch)
-
-            n = 2
-            # n = 3
-            # n = 4
-            for _ in range(n):
+            for _ in range(self.nsteps):
                 self.copy_target_network()
-                for _ in range(2500//n):
+
+                for _ in range(2500//self.nsteps):
                     minibatch = self.replay_memory.sample()
                     self._train(*minibatch)
 
@@ -136,14 +134,14 @@ def epsilon_schedule(t, timeframe=1_000_000, min_epsilon=0.1):
     # epsilon set constant at 0.1
     return 0.1
 
-def train(env, agent_cls, timesteps, seed):
+def train(env, agent_cls, nsteps, timesteps, seed):
     tf.random.set_seed(seed)
     np.random.seed(seed)
 
-    agent = agent_cls(env)
+    agent = agent_cls(env, nsteps)
     observation = env.reset()
 
-    print(f'Training {agent_cls.__name__} on {env.unwrapped.game} for {timesteps} timesteps with seed={seed}')
+    print(f'Training {agent_cls.__name__} (n={nsteps}) on {env.unwrapped.game} for {timesteps} timesteps with seed={seed}')
     print('timestep', 'episode', 'avg_return', 'epsilon', sep='  ', flush=True)
     for t in range(-250_000, timesteps+1):  # Relative to training start
         epsilon = epsilon_schedule(t)
@@ -164,6 +162,8 @@ def train(env, agent_cls, timesteps, seed):
 def add_common_args(parser):
     parser.add_argument('--env', type=str, default='pong',
                         help='(str) Name of Atari game. Default: pong')
+    parser.add_argument('-n', '--nsteps', type=int, default=1,
+                        help='(int) Number of rewards to use before bootstrapping. Default: 1')
     parser.add_argument('--timesteps', type=int, default=3_000_000,
                         help='(int) Training duration. Default: 3_000_000')
     parser.add_argument('--seed', type=int, default=0,
@@ -173,10 +173,10 @@ def add_common_args(parser):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     add_common_args(parser)
-    parser.add_argument('--batchmode', action='store_true',
-                        help='(flag) Activates batch training if present. Default: disabled')
+    parser.add_argument('--batchmode', type=strtobool, default=False,
+                        help='(bool) Activates batch training if present. Default: False')
     args = parser.parse_args()
 
     env = atari_env.make(args.env, args.seed)
     agent_cls = BatchmodeDQNAgent if args.batchmode else DQNAgent
-    train(env, agent_cls, args.timesteps, args.seed)
+    train(env, agent_cls, args.nsteps, args.timesteps, args.seed)
