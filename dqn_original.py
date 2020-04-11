@@ -24,9 +24,6 @@ class DQNAgent:
     def __init__(self, env, nsteps, discount=0.99):
         self.env = env
         assert nsteps >= 1
-        if type(self) == DQNAgent and nsteps != 1:
-            # Temporarily forbid n > 1 in base class
-            raise NotImplementedError
         self.nsteps = nsteps
         self.discount = discount
         self.replay_memory = ReplayMemory(env)
@@ -45,6 +42,9 @@ class DQNAgent:
 
     def save(self, *transition):
         self.replay_memory.save(*transition)
+
+    def _sample(self, nsteps):
+        return self.replay_memory.sample(self.discount, nsteps)
 
     def _preprocess(self, observation):
         return tf.cast(observation, tf.float32) / 255.0
@@ -66,22 +66,24 @@ class DQNAgent:
             self.copy_target_network()
 
         if (t % 4) == 0:
-            minibatch = self.replay_memory.sample()
+            minibatch = self._sample(self.nsteps)
             self._train(*minibatch)
 
     @tf.function
-    def _train(self, observations, actions, rewards, dones, next_observations):
+    def _train(self, observations, actions, nstep_rewards, done_mask, bootstrap_observations):
         observations = self._preprocess(observations)
-        next_observations = self._preprocess(next_observations)
+        bootstrap_observations = self._preprocess(bootstrap_observations)
+
+        target_q_values = self._target_q_values(bootstrap_observations)
+        nstep_discount = pow(self.discount, self.nsteps)
+        bootstraps = nstep_discount * tf.reduce_max(target_q_values, axis=1)
 
         with tf.GradientTape() as tape:
             q_values = self._q_values(observations)
             action_mask = tf.one_hot(actions, depth=self.n_actions)
             q_values = tf.reduce_sum(action_mask * q_values, axis=1)
 
-            target_q_values = self._target_q_values(next_observations)
-            done_mask = (1.0 - dones)
-            returns = rewards + done_mask * self.discount * tf.reduce_max(target_q_values, axis=1)
+            returns = nstep_rewards + (done_mask * bootstraps)
             loss = tf.reduce_mean(tf.square(returns - q_values))
 
         gradients = tape.gradient(loss, self.q_function.trainable_variables)
@@ -100,7 +102,7 @@ class BatchmodeDQNAgent(DQNAgent):
                 self.copy_target_network()
 
                 for _ in range(2500//self.nsteps):
-                    minibatch = self.replay_memory.sample()
+                    minibatch = self.replay_memory.sample(nsteps=1)
                     self._train(*minibatch)
 
 
@@ -123,10 +125,25 @@ class ReplayMemory:
         self.size_now = min(self.size_now + 1, self.capacity)
         self.pointer = (self.pointer + 1) % self.capacity
 
-    def sample(self):
-        i = np.random.randint(self.size_now - 1, size=self.batch_size)
+    def sample(self, discount, nsteps):
+        i = np.random.randint(self.size_now - nsteps, size=self.batch_size)
         i = (self.pointer + i) % self.size_now
-        return self.observations[i], self.actions[i], self.rewards[i], self.dones[i], self.observations[(i+1) % self.size_now]
+
+        observations = self.observations[i]
+        actions = self.actions[i]
+        dones = self.dones[i]
+        bootstrap_observations = self.observations[(i + nsteps) % self.size_now]
+
+        for k in range(nsteps):
+            if k == 0:
+                nstep_rewards = self.rewards[i]
+                done_mask = (1.0 - self.dones[i])
+            else:
+                x = (i+k) % self.size_now
+                nstep_rewards += done_mask * pow(discount, k) * self.rewards[x]
+                done_mask *= (1.0 - self.dones[x])
+
+        return observations, actions, nstep_rewards, done_mask, bootstrap_observations
 
 
 def epsilon_schedule(t, timeframe=1_000_000, min_epsilon=0.1):
@@ -134,14 +151,20 @@ def epsilon_schedule(t, timeframe=1_000_000, min_epsilon=0.1):
     # epsilon set constant at 0.1
     return 0.1
 
-def train(env, agent_cls, nsteps, timesteps, seed):
+def train(env, agent, nsteps, timesteps, seed):
     tf.random.set_seed(seed)
     np.random.seed(seed)
 
     agent = agent_cls(env, nsteps)
     observation = env.reset()
 
-    print(f'Training {agent_cls.__name__} (n={nsteps}) on {env.unwrapped.game} for {timesteps} timesteps with seed={seed}')
+def train(env, agent, timesteps, seed):
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
+
+    observation = env.reset()
+
+    print(f'Training {type(agent).__name__} (n={agent.nsteps}) on {env.unwrapped.game} for {timesteps} timesteps with seed={seed}')
     print('timestep', 'episode', 'avg_return', 'epsilon', sep='  ', flush=True)
     for t in range(-250_000, timesteps+1):  # Relative to training start
         epsilon = epsilon_schedule(t)
@@ -178,5 +201,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     env = atari_env.make(args.env, args.seed)
-    agent_cls = BatchmodeDQNAgent if args.batchmode else DQNAgent
-    train(env, agent_cls, args.nsteps, args.timesteps, args.seed)
+
+    if args.batchmode:
+        agent = BatchmodeDQNAgent(env, args.nsteps)
+    else:
+        agent = DQNAgent(env, args.nsteps)
+    train(env, agent, args.timesteps, args.seed)

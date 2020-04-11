@@ -15,7 +15,7 @@ from pretrained_models.model_editor import make_untrainable
 class AutoencoderAgent(DQNAgent):
     def __init__(self, env, nsteps, discount=0.99):
         self.env = env
-        assert nsteps == 1
+        assert nsteps >= 1
         self.nsteps = nsteps
         self.discount = discount
         self.replay_memory = ReplayMemory(env)
@@ -51,11 +51,11 @@ class AutoencoderAgent(DQNAgent):
     def update(self, t):
         if (t % 10_000) == 0:
             for _ in range(2500):
-                observations, _, _, _, _ = self.replay_memory.sample()
+                observations, _, _, _, _ = self._sample(nsteps=1)
                 self._train_autoencoder(observations)
 
             for _ in range(2500):
-                minibatch = self.replay_memory.sample()
+                minibatch = self._sample(self.nsteps)
                 self._train(*minibatch)
 
     @tf.function
@@ -77,4 +77,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     env = atari_env.make(args.env, args.seed, size=128, grayscale=False, history_len=1)
-    train(env, AutoencoderAgent, args.nsteps, args.timesteps, args.seed)
+    agent = AutoencoderAgent(env, nsteps=args.nsteps)
+    train(env, agent, args.timesteps, args.seed)

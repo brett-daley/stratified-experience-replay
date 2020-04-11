@@ -6,7 +6,7 @@ import os.path
 env_grid = ['atlantis', 'breakout', 'beam_rider', 'centipede', 'name_this_game', 'pong', 'road_runner', 'seaquest']
 n_grid = [1, 2, 3, 4]
 seed_grid = [0]
-batch_flag_grid = [True]
+batch_flag_grid = [False, True]
 
 # CAUTION: Changes in timesteps will NOT be reflected in output/err file names
 timesteps = 3_000_000
