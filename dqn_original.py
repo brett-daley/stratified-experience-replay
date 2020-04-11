@@ -102,7 +102,7 @@ class BatchmodeDQNAgent(DQNAgent):
                 self.copy_target_network()
 
                 for _ in range(2500//self.nsteps):
-                    minibatch = self.replay_memory.sample(nsteps=1)
+                    minibatch = self._sample(nsteps=1)
                     self._train(*minibatch)
 
 
