@@ -1,5 +1,7 @@
+from argparse import ArgumentParser
 import numpy as np
 import itertools
+import os
 
 
 class TabularEnv:
@@ -49,7 +51,7 @@ class TabularEnv:
 
 
 class ValueIterationAgent:
-    def __init__(self, env, nstep, discount=0.9):
+    def __init__(self, env, nstep, discount):
         self.env = env
         self.nstep = nstep
         self.discount = discount
@@ -108,9 +110,9 @@ class ValueIterationAgent:
         return s2, a, self.env.sample_transition(s2, a)
 
 
-def compute_optimal_values(mdp_file, precision=1e-9):
+def compute_optimal_values(mdp_file, discount, precision=1e-9):
     env = TabularEnv(mdp_file)
-    agent = ValueIterationAgent(env, nstep=1)
+    agent = ValueIterationAgent(env, nstep=1, discount=discount)
 
     while True:
         agent.update_with_sweep()
@@ -144,18 +146,24 @@ def performance(env, agent, start_state, end_state, n=100, T=300):
     return (total_return / n)
 
 
-def main():
-    mdp_file = 'gridworld.mdp'
-    optimal_values = compute_optimal_values(mdp_file)
+def main(mdp_file, discount, show_values):
+    optimal_values = compute_optimal_values(mdp_file, discount)
 
     env = TabularEnv(mdp_file)
-    agent = ValueIterationAgent(env, nstep=3)
+    agent = ValueIterationAgent(env, nstep=3, discount=discount)
 
-    print('iteration  values  mse  avg_return')
+    if show_values:
+        print('iteration  values  mse  avg_return')
+    else:
+        print('iteration  mse  avg_return')
+
     for i in itertools.count():
         v = agent.values
         p = performance(env, agent, 7, 11)
-        print(f'{i}  {np.around(v, 3)}  {mse(v, optimal_values):.5f}  {p:.3f}')
+        if show_values:
+            print(f'{i}  {list(np.around(v, 3))}  {mse(v, optimal_values):.5f}  {p:.3f}')
+        else:
+            print(f'{i}  {mse(v, optimal_values):.5f}  {p:.3f}')
 
         if i == 20:
             break
@@ -164,6 +172,16 @@ def main():
 
 
 if __name__ == '__main__':
-    np.random.seed(0)
-    np.set_printoptions(linewidth=88)
-    main()
+    parser = ArgumentParser()
+    parser.add_argument('env_name', type=str)
+    parser.add_argument('--discount', type=float, default=0.9)
+    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('-v', '--values', action='store_true')
+    args = parser.parse_args()
+
+    np.random.seed(args.seed)
+
+    mdp_dir = 'gridworlds'
+    mdp_file = os.path.join(mdp_dir, args.env_name + '.mdp')
+
+    main(mdp_file, args.discount, args.values)
