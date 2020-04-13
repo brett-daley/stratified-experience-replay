@@ -146,24 +146,22 @@ def performance(env, agent, start_state, end_state, n=100, T=300):
     return (total_return / n)
 
 
-def main(mdp_file, discount, show_values):
+def main(mdp_file, discount, verbose):
     optimal_values = compute_optimal_values(mdp_file, discount)
 
     env = TabularEnv(mdp_file)
     agent = ValueIterationAgent(env, nstep=3, discount=discount)
 
-    if show_values:
-        print('iteration  values  mse  avg_return')
-    else:
-        print('iteration  mse  avg_return')
-
+    print('iteration  mse  avg_return')
     for i in itertools.count():
         v = agent.values
         p = performance(env, agent, 7, 11)
-        if show_values:
-            print(f'{i}  {list(np.around(v, 3))}  {mse(v, optimal_values):.5f}  {p:.3f}')
-        else:
-            print(f'{i}  {mse(v, optimal_values):.5f}  {p:.3f}')
+        print(f'{i}  {mse(v, optimal_values):.5f}  {p:.3f}')
+
+        if verbose:
+            print(list(np.around(v, 3)))
+            print(list(agent.policy))
+            print()
 
         if i == 20:
             break
@@ -176,7 +174,7 @@ if __name__ == '__main__':
     parser.add_argument('env_name', type=str)
     parser.add_argument('--discount', type=float, default=0.9)
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('-v', '--values', action='store_true')
+    parser.add_argument('-v', '--verbose', action='store_true')
     args = parser.parse_args()
 
     np.random.seed(args.seed)
@@ -184,4 +182,4 @@ if __name__ == '__main__':
     mdp_dir = 'gridworlds'
     mdp_file = os.path.join(mdp_dir, args.env_name + '.mdp')
 
-    main(mdp_file, args.discount, args.values)
+    main(mdp_file, args.discount, args.verbose)
