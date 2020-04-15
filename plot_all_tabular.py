@@ -26,7 +26,7 @@ def run_if_not_exists(cmd, filename):
 
 
 def glob_and_compute_stats(pattern):
-    metrics = ('iterations', 'mse', 'undisc_return', 'disc_return')
+    metrics = ('iterations', 'rms', 'undisc_return', 'disc_return')
     stats = {m: [] for m in metrics}
 
     # Collect results from all files that match the pattern

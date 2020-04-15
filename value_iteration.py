@@ -131,11 +131,11 @@ def compute_optimal_values(env, precision=1e-9):
     return agent.values.copy()
 
 
-def mse(values1, values2, terminal_state):
+def rms(values1, values2, terminal_state):
     # Ensure that the terminal state is the last state in the array
     assert terminal_state == (len(values1) - 1) == (len(values2) - 1)
-    # Compute the mean squared error
-    return np.mean(np.square(values1 - values2)[:-1])
+    # Compute the root mean squared error
+    return np.sqrt(np.mean(np.square(values1 - values2)[:-1]))
 
 
 def performance(env, agent, start_state, terminal_state, n=100, H=1000):
@@ -172,11 +172,11 @@ def run(env, start_state, terminal_state,
     agent = ValueIterationAgent(env, nstep, use_multibatch)
 
     if verbose:
-        print('iteration  mse  avg_return')
+        print('iteration  rms  undisc_return  disc_return')
 
     for i in itertools.count():
         v = agent.values
-        e = mse(v, optimal_values, terminal_state)
+        e = rms(v, optimal_values, terminal_state)
         undisc_return, disc_return = performance(env, agent, start_state, terminal_state)
 
         print(f'{i}  {e:f}  {undisc_return:.2f}  {disc_return:f}')
