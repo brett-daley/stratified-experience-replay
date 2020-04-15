@@ -68,6 +68,7 @@ class ValueIterationAgent:
         self.values = np.zeros(shape=[env.S], dtype=np.float32)
         self.policy = np.random.choice(env.actions(), size=env.S)
         self._copy()
+        self.samples = 0  # To measure sample efficiency
 
     def _copy(self):
         self._old_values = self.values.copy()
@@ -104,6 +105,7 @@ class ValueIterationAgent:
         total = 0.0
         for _ in range(k):
             total += self._sample_nstep_return(s, a)
+            self.samples += 1
         return (total / k)
 
     def _sample_nstep_return(self, s1, a):
@@ -165,6 +167,13 @@ def performance(env, agent, start_state, terminal_state, n=100, H=1000):
     return (total_undisc_return / n), (total_disc_return / n)
 
 
+def normalized_samples(env, agent):
+    # Computes the number of samples taken per state-action pair
+    SA = (env.S * env.A)
+    assert (agent.samples % SA) == 0
+    return (agent.samples // SA)
+
+
 def run(env, start_state, terminal_state,
         nstep, use_multibatch, samples_per_iteration, max_iterations,
         verbose=True):
@@ -172,14 +181,15 @@ def run(env, start_state, terminal_state,
     agent = ValueIterationAgent(env, nstep, use_multibatch)
 
     if verbose:
-        print('iteration  rms  undisc_return  disc_return')
+        print('iteration  normalized_samples  rms  undisc_return  disc_return')
 
     for i in itertools.count():
         v = agent.values
         e = rms(v, optimal_values, terminal_state)
         undisc_return, disc_return = performance(env, agent, start_state, terminal_state)
+        samples = normalized_samples(env, agent)
 
-        print(f'{i}  {e:f}  {undisc_return:.2f}  {disc_return:f}')
+        print(f'{i}  {samples}  {e:f}  {undisc_return:.2f}  {disc_return:f}')
         if verbose:
             print(list(np.around(v, 3)))
             print(list(agent.policy))
