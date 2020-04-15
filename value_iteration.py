@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 import numpy as np
 import itertools
 import os
+from distutils.util import strtobool
 
 import gridworlds
 
@@ -54,9 +55,16 @@ class TabularEnv:
 
 
 class ValueIterationAgent:
-    def __init__(self, env, nstep):
+    def __init__(self, env, nstep=1, use_multibatch=False):
         self.env = env
-        self.nstep = nstep
+
+        if use_multibatch:
+            self.nstep = 1
+            self.multibatch = nstep
+        else:
+            self.nstep = nstep
+            self.multibatch = 1
+
         self.values = np.zeros(shape=[env.S], dtype=np.float32)
         self.policy = np.random.choice(env.actions(), size=env.S)
         self._copy()
@@ -69,11 +77,12 @@ class ValueIterationAgent:
         return np.abs(self.values - self._old_values).max()
 
     def update_with_sweep(self):
-        self._copy()
-        for s in self.env.states():
-            returns = [self._full_backup(s, a) for a in self.env.actions()]
-            self.values[s] = np.max(returns)
-            self.policy[s] = np.argmax(returns)
+        for _ in range(self.multibatch):
+            self._copy()
+            for s in self.env.states():
+                returns = [self._full_backup(s, a) for a in self.env.actions()]
+                self.values[s] = np.max(returns)
+                self.policy[s] = np.argmax(returns)
 
     def _full_backup(self, s1, a):
         if self.nstep != 1:
@@ -84,11 +93,12 @@ class ValueIterationAgent:
         return (self.env.model(s1, a) * returns).sum()
 
     def update_with_samples(self, k):
-        self._copy()
-        for s in self.env.states():
-            returns = [self._sample_backup(s, a, k) for a in self.env.actions()]
-            self.values[s] = np.max(returns)
-            self.policy[s] = np.argmax(returns)
+        for _ in range(self.multibatch):
+            self._copy()
+            for s in self.env.states():
+                returns = [self._sample_backup(s, a, k) for a in self.env.actions()]
+                self.values[s] = np.max(returns)
+                self.policy[s] = np.argmax(returns)
 
     def _sample_backup(self, s, a, k):
         total = 0.0
@@ -113,7 +123,7 @@ class ValueIterationAgent:
 
 
 def compute_optimal_values(env, precision=1e-9):
-    agent = ValueIterationAgent(env, nstep=1)
+    agent = ValueIterationAgent(env)
     while True:
         agent.update_with_sweep()
         if agent.delta() < precision:
@@ -156,10 +166,10 @@ def performance(env, agent, start_state, terminal_state, n=100, H=1000):
 
 
 def run(env, start_state, terminal_state,
-        nstep, samples_per_iteration, max_iterations,
+        nstep, use_multibatch, samples_per_iteration, max_iterations,
         verbose=True):
     optimal_values = compute_optimal_values(env)
-    agent = ValueIterationAgent(env, nstep)
+    agent = ValueIterationAgent(env, nstep, use_multibatch)
 
     if verbose:
         print('iteration  mse  avg_return')
@@ -185,6 +195,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('env_name', type=str)
     parser.add_argument('-n', '--nstep', type=int, default=1)
+    parser.add_argument('-m', '--multibatch', type=strtobool, default='False')
     parser.add_argument('-s', '--samples', type=int, default=100)
     parser.add_argument('-i', '--iterations', type=int, default=20)
     parser.add_argument('--seed', type=int, default=0)
@@ -205,5 +216,5 @@ if __name__ == '__main__':
     env = TabularEnv(mdp_file, discount)
 
     run(env, start_state, terminal_state,
-        args.nstep, args.samples, args.iterations,
+        args.nstep, args.multibatch, args.samples, args.iterations,
         args.verbose)
