@@ -131,24 +131,30 @@ def mse(values1, values2, terminal_state):
 
 
 def performance(env, agent, start_state, terminal_state, n=100, H=1000):
-    total_return = 0.0
+    total_undisc_return = 0.0
+    total_disc_return = 0.0
 
     for _ in range(n):
         discount = 1.0
         s = start_state
-        discounted_return = 0.0
+        undisc_return = 0.0
+        disc_return = 0.0
 
         for t in itertools.count():
             a = agent.policy[s]
             s, r = env.step(s, a)
-            discounted_return += discount * r
+
+            undisc_return += r
+            disc_return += discount * r
             discount *= agent.discount
+
             if (s == terminal_state) or (t == H):
                 break
 
-        total_return += discounted_return
+        total_undisc_return += undisc_return
+        total_disc_return += disc_return
 
-    return (total_return / n)
+    return (total_undisc_return / n), (total_disc_return / n)
 
 
 def run(mdp_file, start_state, terminal_state, discount,
@@ -165,9 +171,9 @@ def run(mdp_file, start_state, terminal_state, discount,
     for i in itertools.count():
         v = agent.values
         e = mse(v, optimal_values, terminal_state)
-        p = performance(env, agent, start_state, terminal_state)
+        undisc_return, disc_return = performance(env, agent, start_state, terminal_state)
 
-        print(f'{i}  {e:f}  {p:f}')
+        print(f'{i}  {e:f}  {undisc_return:.2f}  {disc_return:f}')
         if verbose:
             print(list(np.around(v, 3)))
             print(list(agent.policy))
