@@ -7,8 +7,9 @@ import gridworlds
 
 
 class TabularEnv:
-    def __init__(self, mdp_file):
+    def __init__(self, mdp_file, discount):
         mdp = np.loadtxt(mdp_file)
+        self.discount = discount
 
         self.S = S = int(max(np.maximum(mdp[:, 0], mdp[:, 2]))) + 1
         self.A = A = int(mdp[:, 1].max()) + 1
@@ -53,10 +54,9 @@ class TabularEnv:
 
 
 class ValueIterationAgent:
-    def __init__(self, env, nstep, discount):
+    def __init__(self, env, nstep):
         self.env = env
         self.nstep = nstep
-        self.discount = discount
         self.values = np.zeros(shape=[env.S], dtype=np.float32)
         self.policy = np.random.choice(env.actions(), size=env.S)
         self._copy()
@@ -79,7 +79,7 @@ class ValueIterationAgent:
         if self.nstep != 1:
             raise NotImplementedError
 
-        returns = np.asarray([self.env.reward(s1, a, s2) + (self.discount * self._old_values[s2])
+        returns = np.asarray([self.env.reward(s1, a, s2) + (self.env.discount * self._old_values[s2])
                               for s2 in self.env.states()])
         return (self.env.model(s1, a) * returns).sum()
 
@@ -102,9 +102,9 @@ class ValueIterationAgent:
 
         for i in range(1, self.nstep):
             s1, a, s2 = self._next(s2)
-            nstep_return += pow(self.discount, i) * self.env.reward(s1, a, s2)
+            nstep_return += pow(self.env.discount, i) * self.env.reward(s1, a, s2)
 
-        nstep_return += pow(self.discount, self.nstep) * self._old_values[s2]
+        nstep_return += pow(self.env.discount, self.nstep) * self._old_values[s2]
         return nstep_return
 
     def _next(self, s2):
@@ -112,10 +112,8 @@ class ValueIterationAgent:
         return s2, a, self.env.sample_transition(s2, a)
 
 
-def compute_optimal_values(mdp_file, discount, precision=1e-9):
-    env = TabularEnv(mdp_file)
-    agent = ValueIterationAgent(env, nstep=1, discount=discount)
-
+def compute_optimal_values(env, precision=1e-9):
+    agent = ValueIterationAgent(env, nstep=1)
     while True:
         agent.update_with_sweep()
         if agent.delta() < precision:
@@ -146,7 +144,7 @@ def performance(env, agent, start_state, terminal_state, n=100, H=1000):
 
             undisc_return += r
             disc_return += discount * r
-            discount *= agent.discount
+            discount *= env.discount
 
             if (s == terminal_state) or (t == H):
                 break
@@ -157,13 +155,11 @@ def performance(env, agent, start_state, terminal_state, n=100, H=1000):
     return (total_undisc_return / n), (total_disc_return / n)
 
 
-def run(mdp_file, start_state, terminal_state, discount,
+def run(env, start_state, terminal_state,
         nstep, samples_per_iteration, max_iterations,
         verbose=True):
-    optimal_values = compute_optimal_values(mdp_file, discount)
-
-    env = TabularEnv(mdp_file)
-    agent = ValueIterationAgent(env, nstep, discount)
+    optimal_values = compute_optimal_values(env)
+    agent = ValueIterationAgent(env, nstep)
 
     if verbose:
         print('iteration  mse  avg_return')
@@ -206,7 +202,8 @@ if __name__ == '__main__':
     # Load the MDP file
     mdp_dir = 'gridworlds'
     mdp_file = os.path.join(mdp_dir, args.env_name + '.mdp')
+    env = TabularEnv(mdp_file, discount)
 
-    run(mdp_file, start_state, terminal_state, discount,
+    run(env, start_state, terminal_state,
         args.nstep, args.samples, args.iterations,
         args.verbose)
