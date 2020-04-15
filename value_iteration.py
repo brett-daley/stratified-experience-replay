@@ -3,6 +3,8 @@ import numpy as np
 import itertools
 import os
 
+import gridworlds
+
 
 class TabularEnv:
     def __init__(self, mdp_file):
@@ -121,11 +123,14 @@ def compute_optimal_values(mdp_file, discount, precision=1e-9):
     return agent.values.copy()
 
 
-def mse(values1, values2):
+def mse(values1, values2, terminal_state):
+    # Ensure that the terminal state is the last state in the array
+    assert terminal_state == (len(values1) - 1) == (len(values2) - 1)
+    # Compute the mean squared error
     return np.mean(np.square(values1 - values2)[:-1])
 
 
-def performance(env, agent, start_state, end_state, n=100, T=300):
+def performance(env, agent, start_state, terminal_state, n=100, H=1000):
     total_return = 0.0
 
     for _ in range(n):
@@ -138,7 +143,7 @@ def performance(env, agent, start_state, end_state, n=100, T=300):
             s, r = env.step(s, a)
             discounted_return += discount * r
             discount *= agent.discount
-            if (s == end_state) or (t == T):
+            if (s == terminal_state) or (t == H):
                 break
 
         total_return += discounted_return
@@ -146,40 +151,56 @@ def performance(env, agent, start_state, end_state, n=100, T=300):
     return (total_return / n)
 
 
-def main(mdp_file, discount, verbose):
+def run(mdp_file, start_state, terminal_state, discount,
+        nstep, samples_per_iteration, max_iterations,
+        verbose=True):
     optimal_values = compute_optimal_values(mdp_file, discount)
 
     env = TabularEnv(mdp_file)
-    agent = ValueIterationAgent(env, nstep=3, discount=discount)
+    agent = ValueIterationAgent(env, nstep, discount)
 
-    print('iteration  mse  avg_return')
+    if verbose:
+        print('iteration  mse  avg_return')
+
     for i in itertools.count():
         v = agent.values
-        p = performance(env, agent, 7, 11)
-        print(f'{i}  {mse(v, optimal_values):.5f}  {p:.3f}')
+        e = mse(v, optimal_values, terminal_state)
+        p = performance(env, agent, start_state, terminal_state)
 
+        print(f'{i}  {e:f}  {p:f}')
         if verbose:
             print(list(np.around(v, 3)))
             print(list(agent.policy))
             print()
 
-        if i == 20:
+        if i == max_iterations:
             break
 
-        agent.update_with_samples(100)
+        agent.update_with_samples(k=samples_per_iteration)
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('env_name', type=str)
-    parser.add_argument('--discount', type=float, default=0.9)
+    parser.add_argument('-n', '--nstep', type=int, default=1)
+    parser.add_argument('-s', '--samples', type=int, default=100)
+    parser.add_argument('-i', '--iterations', type=int, default=20)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('-v', '--verbose', action='store_true')
     args = parser.parse_args()
 
     np.random.seed(args.seed)
 
+    # Metadata that's easiest to just hardcode here
+    start_state, terminal_state, discount = {
+        'gridworld': (7, 11, 0.9),
+        'whirlpool': (0, 48, 0.99),
+    }[args.env_name]
+
+    # Load the MDP file
     mdp_dir = 'gridworlds'
     mdp_file = os.path.join(mdp_dir, args.env_name + '.mdp')
 
-    main(mdp_file, args.discount, args.verbose)
+    run(mdp_file, start_state, terminal_state, discount,
+        args.nstep, args.samples, args.iterations,
+        args.verbose)
