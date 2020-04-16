@@ -4,8 +4,6 @@ import itertools
 import os
 from distutils.util import strtobool
 
-import gridworlds
-
 
 class TabularEnv:
     def __init__(self, mdp_file, discount):
@@ -83,7 +81,7 @@ class ValueIterationAgent:
             for s in self.env.states():
                 returns = [self._full_backup(s, a) for a in self.env.actions()]
                 self.values[s] = np.max(returns)
-                self.policy[s] = np.argmax(returns)
+                self.policy[s] = argmax_random_tiebreak(returns)
 
     def _full_backup(self, s1, a):
         if self.nstep != 1:
@@ -99,7 +97,7 @@ class ValueIterationAgent:
             for s in self.env.states():
                 returns = [self._sample_backup(s, a, k) for a in self.env.actions()]
                 self.values[s] = np.max(returns)
-                self.policy[s] = np.argmax(returns)
+                self.policy[s] = argmax_random_tiebreak(returns)
 
     def _sample_backup(self, s, a, k):
         total = 0.0
@@ -122,6 +120,11 @@ class ValueIterationAgent:
     def _next(self, s2):
         a = self.policy[s2]
         return s2, a, self.env.sample_transition(s2, a)
+
+
+def argmax_random_tiebreak(a):
+    a = np.asarray(a)
+    return np.random.choice(np.flatnonzero(a == a.max()))
 
 
 def compute_optimal_values(env, precision=1e-9):
