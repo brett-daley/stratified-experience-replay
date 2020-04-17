@@ -13,10 +13,12 @@ from pretrained_models.model_editor import make_untrainable
 
 
 class AutoencoderAgent(DQNAgent):
-    def __init__(self, env, nsteps, discount=0.99):
+    def __init__(self, env, nsteps, minibatches, discount=0.99):
         self.env = env
         assert nsteps >= 1
         self.nsteps = nsteps
+        assert minibatches >= 1
+        self.minibatches = minibatches
         self.discount = discount
         self.replay_memory = ReplayMemory(env)
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, epsilon=1e-4)
@@ -50,11 +52,11 @@ class AutoencoderAgent(DQNAgent):
 
     def update(self, t):
         if (t % 10_000) == 0:
-            for _ in range(2500):
+            for _ in range(self.minibatches):
                 observations, _, _, _, _ = self._sample(nsteps=1)
                 self._train_autoencoder(observations)
 
-            for _ in range(2500):
+            for _ in range(self.minibatches):
                 minibatch = self._sample(self.nsteps)
                 self._train(*minibatch)
 
@@ -77,5 +79,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     env = atari_env.make(args.env, args.seed, size=128, grayscale=False, history_len=1)
-    agent = AutoencoderAgent(env, nsteps=args.nsteps)
+    agent = AutoencoderAgent(env, args.nsteps, args.minibatches)
     train(env, agent, args.timesteps, args.seed)
