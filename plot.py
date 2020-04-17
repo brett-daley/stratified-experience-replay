@@ -6,7 +6,7 @@ import os
 import yaml
 from glob import glob
 
-METRICS = ('timestep', 'episode', 'avg_return', 'epsilon')
+METRICS = ('timestep', 'episode', 'avg_return', 'epsilon', 'hours')
 
 
 def new_report():

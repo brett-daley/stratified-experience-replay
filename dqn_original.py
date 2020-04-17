@@ -5,6 +5,7 @@ import argparse
 import os
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
 from distutils.util import strtobool
+import time
 
 import atari_env
 
@@ -165,14 +166,18 @@ def train(env, agent, timesteps, seed):
     observation = env.reset()
 
     print(f'Training {type(agent).__name__} (n={agent.nsteps}) on {env.unwrapped.game} for {timesteps} timesteps with seed={seed}')
-    print('timestep', 'episode', 'avg_return', 'epsilon', sep='  ', flush=True)
+    print('timestep', 'episode', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
     for t in range(-250_000, timesteps+1):  # Relative to training start
         epsilon = epsilon_schedule(t)
+
+        if t == 0:
+            start_time = time.time()
 
         if t >= 0:
             if (t % 5_000) == 0:
                 rewards = env.get_episode_rewards()
-                print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}', flush=True)
+                hours = (time.time() - start_time) / 3600
+                print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
 
             agent.update(t)
 
