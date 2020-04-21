@@ -3,13 +3,14 @@ import subprocess
 import os.path
 
 ######### RUN PARAMETERS #########
-env_grid = ['atlantis', 'breakout', 'beam_rider', 'centipede', 'name_this_game', 'pong', 'road_runner', 'seaquest']
-n_grid = [1, 2, 3, 4]
+env_grid = ['breakout']
+n_grid = [1, 3, 5, 7, 9]
+m_grid = [2_500, 7_500, 12_500, 17_500, 22_500]
 seed_grid = [0]
-batch_flag_grid = [False, True]
+batch_flag_grid = [False]
 
 # CAUTION: Changes in timesteps will NOT be reflected in output/err file names
-timesteps = 3_000_000
+timesteps = 5_000_000
 ##################################
 
 
@@ -53,26 +54,27 @@ def main():
 
     for env in env_grid:
         for n in n_grid:
-            for batch_flag in batch_flag_grid:
-                for seed in seed_grid:
-                    # Generate file paths and executable command
-                    env_no_underscore = env.replace("_", "")  # Reformat env name for output file name
-                    basename = f'env-{env_no_underscore}_n-{n}_batchmode-{batch_flag}_seed-{seed}'
-                    out_file = basename + '.txt'
-                    err_file = basename + '.err.txt'
-                    cmd = f'python3 dqn_original.py --env {env} -n {n} --batchmode {batch_flag} --timesteps {timesteps} --seed {seed}'
+            for m in m_grid:
+                for batch_flag in batch_flag_grid:
+                    for seed in seed_grid:
+                        # Generate file paths and executable command
+                        env_no_underscore = env.replace("_", "")  # Reformat env name for output file name
+                        basename = f'env-{env_no_underscore}_n-{n}_m-{m}_batchmode-{batch_flag}_seed-{seed}'
+                        out_file = basename + '.txt'
+                        err_file = basename + '.err.txt'
+                        cmd = f'python3 dqn_original.py --env {env} -n {n} -m {m} --batchmode {batch_flag} --timesteps {timesteps} --seed {seed}'
 
-                    # If file for a configuration exists, skip over that configuration
-                    if os.path.exists(out_file) or os.path.exists(err_file):
-                        print_red(f'{basename} (already exists; skipping)')
-                        continue
+                        # If file for a configuration exists, skip over that configuration
+                        if os.path.exists(out_file) or os.path.exists(err_file):
+                            print_red(f'{basename} (already exists; skipping)')
+                            continue
 
-                    # Otherwise, generate and run script on cluster
-                    # Populates 'runscript.sh' file to run 'dqn_original.py' file
-                    # on cluster's GPU partition for 4 hours with 1 node, 1 core, and 32GB memory
-                    # Dispatches 'runscript.sh' to SLURM if '--go' flag was specified in CLI
-                    print(basename)
-                    dispatch(out_file, err_file, cmd, args.go)
+                        # Otherwise, generate and run script on cluster
+                        # Populates 'runscript.sh' file to run 'dqn_original.py' file
+                        # on cluster's GPU partition for 4 hours with 1 node, 1 core, and 32GB memory
+                        # Dispatches 'runscript.sh' to SLURM if '--go' flag was specified in CLI
+                        print(basename)
+                        dispatch(out_file, err_file, cmd, args.go)
 
     if not args.go:
         print_yellow('''
