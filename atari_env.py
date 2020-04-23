@@ -7,6 +7,7 @@ import cv2
 
 def make(game, seed, size=84, grayscale=True, history_len=4):
     env = AtariEnv(game, frameskip=4, obs_type='image')
+    env = Monitor(env, directory='monitor', force=True, video_callable=lambda e: False)
 
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetWrapper(env)
@@ -16,7 +17,6 @@ def make(game, seed, size=84, grayscale=True, history_len=4):
     env = PreprocessedImageWrapper(env, size, grayscale)
     if history_len > 1:
         env = HistoryWrapper(env, history_len)
-    env = Monitor(env, directory='monitor', force=True, video_callable=lambda e: False)
 
     env.seed(seed)
     env.action_space.seed(seed)
@@ -38,10 +38,10 @@ class EpisodicLifeWrapper(gym.Wrapper):
         self.observation, reward, done, info = self.env.step(action)
         self.was_real_done = done
         lives = self.env.unwrapped.ale.lives()
-        if lives < self.lives:
+        if 0 < lives < self.lives:
             # We lost a life, but force a reset only if it's not game over.
             # Otherwise, the environment just handles it automatically.
-            done = (lives > 0)
+            done = True
         self.lives = lives
         return self.observation, reward, done, info
 
