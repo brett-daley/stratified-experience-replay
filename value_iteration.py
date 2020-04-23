@@ -9,6 +9,7 @@ class TabularEnv:
     def __init__(self, mdp_file, discount):
         mdp = np.loadtxt(mdp_file)
         self.discount = discount
+        self.use_noisy_rewards = True
 
         self.S = S = int(max(np.maximum(mdp[:, 0], mdp[:, 2]))) + 1
         self.A = A = int(mdp[:, 1].max()) + 1
@@ -31,8 +32,8 @@ class TabularEnv:
     def states(self):
         return range(self.S)
 
-    def random_state(self):
-        return np.random.randrange(self.S)
+    def is_terminal(self, state):
+        return state == (self.S - 1)
 
     def actions(self):
         return range(self.A)
@@ -44,7 +45,10 @@ class TabularEnv:
         return np.random.choice(self.states(), p=self.model(s1, a))
 
     def reward(self, s1, a, s2):
-        return self._reward[s1, a, s2]
+        r = self._reward[s1, a, s2]
+        if self.use_noisy_rewards and not self.is_terminal(s1):
+            r += np.random.normal(scale=0.1)
+        return r
 
     def step(self, s1, a):
         s2 = self.sample_transition(s1, a)
@@ -129,10 +133,12 @@ def argmax_random_tiebreak(a):
 
 def compute_optimal_values(env, precision=1e-9):
     agent = ValueIterationAgent(env)
+    env.use_noisy_rewards = False  # Temporarily disable noise
     while True:
         agent.update_with_sweep()
         if agent.delta() < precision:
             break
+    env.use_noisy_rewards = True   # Re-enable noise
     return agent.values.copy()
 
 
