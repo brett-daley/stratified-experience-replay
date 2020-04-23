@@ -31,6 +31,7 @@ def dispatch(out_file, err_file, cmd, max_hours, go):
 #SBATCH -o {out_file}  # File to which STDOUT will be written, %j inserts jobid
 #SBATCH -e {err_file}  # File to which STDERR will be written, %j inserts jobid
 module load Anaconda3/5.0.1-fasrc01  # Load module
+module load cudnn/7.6.5.32_cuda10.1-fasrc01
 source activate openaigym  # Switch to openaigym conda environment
 {cmd}  # Run code
 """
