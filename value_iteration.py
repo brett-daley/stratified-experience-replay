@@ -143,8 +143,6 @@ def compute_optimal_values(env, precision=1e-9):
 
 
 def rms(values1, values2, terminal_state):
-    # Ensure that the terminal state is the last state in the array
-    assert terminal_state == (len(values1) - 1) == (len(values2) - 1)
     # Compute the root mean squared error
     return np.sqrt(np.mean(np.square(values1 - values2)[:-1]))
 
@@ -233,6 +231,9 @@ if __name__ == '__main__':
     mdp_dir = 'gridworlds'
     mdp_file = os.path.join(mdp_dir, args.env_name + '.mdp')
     env = TabularEnv(mdp_file, discount)
+
+    # Ensure that the terminal state is the last state in the array
+    assert terminal_state == env.S - 1
 
     run(env, start_state, terminal_state,
         args.nstep, args.multibatch, args.samples, args.iterations,

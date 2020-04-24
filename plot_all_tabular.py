@@ -3,32 +3,44 @@ import subprocess
 import matplotlib.pyplot as plt
 import os
 from glob import glob
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
 RESULTS_DIR = 'tabular_results'
 PLOTS_DIR = 'tabular_plots'
 
-ENVS = ('gridworld', 'whirlpool')
-MAX_N = 10
-MAX_ITERATIONS = 20
-MAX_SEEDS = 10
+SEEDS = range(100)
 # SHOW_STD = False
 SAVE_AS_PDF = False
+MAX_ITERATIONS = 50
 
+ENVS = ('gridworld', 'whirlpool')
+N_VALUES = (1, 3, 5)
+M_VALUES = (True, False)
+MAX_SAMPLES = 100
+COLORS = ('r', 'g', 'b', 'm')
+assert len(COLORS) >= len(N_VALUES)
+
+
+_print_lock = Lock()
 
 def run_if_not_exists(cmd, filename):
     cmd += f' --iterations={MAX_ITERATIONS}'
     path = os.path.join(RESULTS_DIR, filename)
-    print(cmd)
-    print('>', path)
-    if os.path.exists(path):
-        print('(already exists)')
-    else:
+    with _print_lock:
+        print(cmd)
+        print('>', path)
+        if os.path.exists(path):
+            print('(already exists)')
+        print(flush=True)
+    if not os.path.exists(path):
         with open(path, 'w') as f:
             subprocess.call(cmd.split(' '), stdout=f)
-    print(flush=True)
 
 
 class StatsParser:
+    '''Automatically parses results and computes means, standard deviations.
+    Previous requests are cached in memory to reduce runtime.'''
     def __init__(self):
         self.cache = {}  # Saves previous requests so we don't have to re-parse them
 
@@ -74,44 +86,61 @@ def save_plot(name):
     print('Saved', path)
 
 
+def fair_samples(n, multibatch):
+    return MAX_SAMPLES if multibatch else (n * MAX_SAMPLES)
+
+
+def make_label(n, multibatch):
+    if n == 1:
+        return f'Both, n={n}'
+    return f"{('n-Strap' if multibatch else 'n-Step')}, n={n}"
+
+
+_parser = StatsParser()
+
+def generate_plot(env, metric, xlim=MAX_ITERATIONS, title=''):
+    plt.figure()
+    for m in M_VALUES:
+        for n, color in zip(N_VALUES, COLORS):
+            if not m and (n == 1):
+                # n=1 is identical with/without our method, so only plot it once
+                continue
+            s = fair_samples(n, m)
+            stats = _parser[f'{env}_nstep-{n}_multibatch-{m}_samples-{s}_seed-*']
+            plt.plot(stats['iteration'], stats[metric], ('-' if m else '--') + color,
+                     label=make_label(n, m))
+    plt.title(title)
+    plt.legend(loc='best')
+    plt.xlim([0, xlim])
+    save_plot(name=f'{env}_{metric}')
+    plt.close()
+
+
 def main():
     os.makedirs(RESULTS_DIR, exist_ok=True)
     os.makedirs(PLOTS_DIR, exist_ok=True)
 
     # Run all experiments
-    for env in ENVS:
-        for n in range(1, MAX_N+1):
-            for m in [False, True]:
-                for s in range(MAX_SEEDS):
-                    cmd = f'python value_iteration.py {env} --nstep={n} --multibatch={m} --samples=10 --seed={s}'
-                    filename = f'{env}_nstep-{n}_multibatch-{m}_samples-10_seed-{s}'
-                    run_if_not_exists(cmd, filename)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        for env in ENVS:
+            for n in N_VALUES:
+                for m in M_VALUES:
+                    for seed in SEEDS:
+                        s = fair_samples(n, m)
+                        cmd = f'python value_iteration.py {env} --nstep={n} --multibatch={m} --samples={s} --seed={seed}'
+                        filename = f'{env}_nstep-{n}_multibatch-{m}_samples-{s}_seed-{seed}'
+                        executor.submit(run_if_not_exists, cmd, filename)
 
-    # This object automatically parses results and computes means, standard devs.
-    parser = StatsParser()
+    # Generate all plots
+    generate_plot('gridworld', 'rms',
+                  title='Gridworld - RMS Error', xlim=20)
+    generate_plot('gridworld', 'undisc_return',
+                  title='Gridworld - Undiscounted Return', xlim=20)
 
-    for env in ENVS:
-        # Discounted return vs. iteration
-        for m in [False, True]:
-            plt.figure()
-            for n in range(1, 5+1):
-                stats = parser[f'{env}_nstep-{n}_multibatch-{m}_samples-10_seed-*']
-                plt.plot(stats['iteration'], stats['rms'], label=f'{n}_{m}')
-            plt.legend(loc='best')
-            plt.xlim([0, 5])
-            save_plot(name=f'{env}_rms_multibatch-{m}')
-            plt.close()
-
-        # RMS error vs. iteration
-        for m in [False, True]:
-            plt.figure()
-            for n in range(1, 5+1):
-                stats = parser[f'{env}_nstep-{n}_multibatch-{m}_samples-10_seed-*']
-                plt.plot(stats['iteration'], stats['disc_return'], label=f'{n}_{m}')
-            plt.legend(loc='best')
-            plt.xlim([0, 5])
-            save_plot(name=f'{env}_discreturn_multibatch-{m}')
-            plt.close()
+    generate_plot('whirlpool', 'rms',
+                  title='Whirlpool - RMS Error')
+    generate_plot('whirlpool', 'undisc_return',
+                  title='Whirlpool - Undiscounted Return')
 
 
 if __name__ == '__main__':
