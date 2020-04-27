@@ -112,9 +112,21 @@ def main():
     for plot_name, experiments in config.items():
         fig = plt.figure(figsize=(17, 7))
         ax = plt.subplot(111)
+        y_best = -np.inf
+        y_best_label = None
+        y_best_color = None
+        new_n_flag = False
+        old_n = None
 
         for e in experiments:
             assert '_seed-' not in e
+
+            n_val = re.search('n-(\d)', e)
+            found_n = n_val.group(1)
+
+            if old_n is not None and old_n != found_n:
+                new_n_flag = True
+            old_n = found_n
 
             report = parse_one(args.input_dir, e)
             x = report['timestep']
@@ -124,9 +136,24 @@ def main():
                 else 'blue' if 'n-5' in e \
                 else 'magenta' if 'n-7' in e \
                 else 'cyan'
-            linestyle = '-' if 'True' in e else ':'
             x, y = map(np.array, [x, y])
-            ax.plot(x, y, label=e, color=color, linestyle=linestyle)
+
+            # Determine which m-trace to plot
+            if 'True' in e:
+                ax.plot(x, y, label=e, color=color, linestyle='-')
+            elif 'False' in e:
+                if new_n_flag:
+                    ax.plot(x, y_best, label="best-m_"+y_best_label, color=y_best_color, linestyle=':')
+                    y_best = -np.inf
+                    y_best_label = None
+                    y_best_color = None
+                    new_n_flag = False
+                if np.mean(y) > np.mean(y_best):
+                    y_best = y
+                    y_best_label = e
+                    y_best_color = color
+
+        ax.plot(x, y_best, label="best-m_"+y_best_label, color=y_best_color, linestyle=':')
 
         # Shrink current axis by 20%
         box = ax.get_position()
@@ -135,7 +162,7 @@ def main():
         # Put a legend to the right of the current axis
         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-        easy_save(plot_name)
+        easy_save(plot_name+"_best-m")
         plt.close()
 
 

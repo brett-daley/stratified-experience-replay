@@ -6,3 +6,4 @@ monitor
 runscript.sh
 plots
 results
+plot_config.yaml
