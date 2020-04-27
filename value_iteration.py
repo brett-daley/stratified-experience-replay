@@ -11,13 +11,23 @@ class TabularEnv:
         self.discount = discount
         self.use_noisy_rewards = True
 
-        self.S = S = int(max(np.maximum(mdp[:, 0], mdp[:, 2]))) + 1
+        # In case states are not consecutive numbers, we'll read them
+        # one-by-one and then alias them to consecutive numbers
+        self.state_lookup = state_lookup = {}
+        next_available = 0
+        for s in mdp[:, 0]:
+            if s not in state_lookup:
+                state_lookup[s] = next_available
+                next_available += 1
+        self.S = S = len(state_lookup)
+
+        # We can assume actions are always consecutive
         self.A = A = int(mdp[:, 1].max()) + 1
 
         self._model = np.zeros(shape=(S, A, S))
         self._reward = np.zeros(shape=(S, A, S))
         for s1, a, s2, T, r in mdp:
-            s1, a, s2 = int(s1), int(a), int(s2)
+            s1, a, s2 = state_lookup[s1], int(a), state_lookup[s2]
             self._model[s1, a, s2] = T
             self._reward[s1, a, s2] = r
 
@@ -158,15 +168,15 @@ def performance(env, agent, start_state, terminal_state, n=100, H=1000):
         disc_return = 0.0
 
         for t in itertools.count():
+            if (s == terminal_state) or (t == H):
+                break
+
             a = agent.policy[s]
             s, r = env.step(s, a)
 
             undisc_return += r
             disc_return += discount * r
             discount *= env.discount
-
-            if (s == terminal_state) or (t == H):
-                break
 
         total_undisc_return += undisc_return
         total_disc_return += disc_return
@@ -224,6 +234,8 @@ if __name__ == '__main__':
     # Metadata that's easiest to just hardcode here
     start_state, terminal_state, discount = {
         'gridworld': (7, 11, 0.9),
+        'windy_gridworld': (0, 97, 0.95),
+        'windy_gridworld_stochastic': (0, 97, 0.95),
         'whirlpool': (0, 48, 0.99),
     }[args.env_name]
 
@@ -231,6 +243,10 @@ if __name__ == '__main__':
     mdp_dir = 'gridworlds'
     mdp_file = os.path.join(mdp_dir, args.env_name + '.mdp')
     env = TabularEnv(mdp_file, discount)
+
+    # The env might have aliased the state names, so we must "translate" them here
+    start_state = env.state_lookup[float(start_state)]
+    terminal_state = env.state_lookup[float(terminal_state)]
 
     # Ensure that the terminal state is the last state in the array
     assert terminal_state == env.S - 1
