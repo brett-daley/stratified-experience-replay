@@ -233,7 +233,7 @@ if __name__ == '__main__':
 
     # Metadata that's easiest to just hardcode here
     start_state, terminal_state, discount = {
-        'gridworld': (7, 11, 0.9),
+        'classic_gridworld': (7, 11, 0.9),
         'windy_gridworld': (0, 97, 0.95),
         'windy_gridworld_stochastic': (0, 97, 0.95),
         'whirlpool': (0, 48, 0.99),

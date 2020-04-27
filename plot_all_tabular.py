@@ -14,7 +14,7 @@ SEEDS = range(100)
 SAVE_AS_PDF = False
 MAX_ITERATIONS = 50
 
-ENVS = ('gridworld', 'whirlpool')
+ENVS = ('classic_gridworld', 'whirlpool')
 N_VALUES = (1, 3, 5)
 M_VALUES = (True, False)
 MAX_SAMPLES = 100
@@ -132,10 +132,10 @@ def main():
                         executor.submit(run_if_not_exists, cmd, filename)
 
     # Generate all plots
-    generate_plot('gridworld', 'rms',
-                  title='Gridworld - RMS Error', xlim=20)
-    generate_plot('gridworld', 'undisc_return',
-                  title='Gridworld - Undiscounted Return', xlim=20)
+    generate_plot('classic_gridworld', 'rms',
+                  title='Classic Gridworld - RMS Error', xlim=20)
+    generate_plot('classic_gridworld', 'undisc_return',
+                  title='Classic Gridworld - Undiscounted Return', xlim=20)
 
     generate_plot('whirlpool', 'rms',
                   title='Whirlpool - RMS Error')
