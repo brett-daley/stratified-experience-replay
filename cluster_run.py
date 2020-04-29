@@ -5,9 +5,9 @@ import math
 
 ######### RUN PARAMETERS #########
 env_grid = ['beam_rider', 'breakout', 'pong', 'seaquest', 'space_invaders']
-n_grid = [1, 3, 5, 7]
+n_grid = [1, 3, 5, 7]  # n-step learning
+m_grid = [0, 1, 2, 3]  # m-strap learning (0 means disabled)
 seed_grid = range(1)
-batch_flag_grid = [False, True]
 
 # CAUTION: Changes in timesteps will NOT be reflected in output/err file names
 timesteps = 5_000_000
@@ -69,32 +69,28 @@ def main():
 
     for env in env_grid:
         for n in n_grid:
-            for batch_flag in batch_flag_grid:
-                # This ensures that the total amount of computation is the same
-                # for a fixed n-value, with or without batchmode enabled.
-                m_grid = [2500*n for n in n_grid] if not batch_flag else [2500]
-                for m in m_grid:
-                    for seed in seed_grid:
-                        # Generate file paths and executable command
-                        env_no_underscore = env.replace("_", "")  # Reformat env name for output file name
-                        basename = f'env-{env_no_underscore}_n-{n}_m-{m}_batchmode-{batch_flag}_seed-{seed}'
-                        out_file = basename + '.txt'
-                        err_file = basename + '.err.txt'
-                        cmd = f'python3 dqn_original.py --env {env} -n {n} -m {m} --batchmode {batch_flag} --timesteps {timesteps} --seed {seed}'
+            for m in m_grid:
+                for seed in seed_grid:
+                    # Generate file paths and executable command
+                    env_no_underscore = env.replace("_", "")  # Reformat env name for output file name
+                    basename = f'env-{env_no_underscore}_n-{n}_m-{m}_seed-{seed}'
+                    out_file = basename + '.txt'
+                    err_file = basename + '.err.txt'
+                    cmd = f'python3 dqn_original.py --env {env} -n {n} -m {m} --timesteps {timesteps} --seed {seed}'
 
-                        # If file for a configuration exists, skip over that configuration
-                        if os.path.exists(out_file) or os.path.exists(err_file):
-                            print_red(f'{basename} (already exists; skipping)')
-                            continue
+                    # If file for a configuration exists, skip over that configuration
+                    if os.path.exists(out_file) or os.path.exists(err_file):
+                        print_red(f'{basename} (already exists; skipping)')
+                        continue
 
-                        # Otherwise, generate and run script on cluster
-                        # Populates 'runscript.sh' file to run 'dqn_original.py' file
-                        # on cluster's GPU partition with 1 node, 1 core, and 32GB memory
-                        # Dispatches 'runscript.sh' to SLURM if '--go' flag was specified in CLI
-                        print(basename)
-                        # Timing heuristic: 3 hours per 2500 minibatches/epoch, plus an extra hour
-                        hours = (3*n + 1) if batch_flag else (3*m/2500 + 1)
-                        dispatch(out_file, err_file, cmd, hours, args.go)
+                    # Otherwise, generate and run script on cluster
+                    # Populates 'runscript.sh' file to run 'dqn_original.py' file
+                    # on cluster's GPU partition with 1 node, 1 core, and 32GB memory
+                    # Dispatches 'runscript.sh' to SLURM if '--go' flag was specified in CLI
+                    print(basename)
+                    # Timing heuristic: 3 hours per 2500 minibatches/epoch, plus an extra hour
+                    # hours = (3*n + 1) if batch_flag else (3*m/2500 + 1)
+                    dispatch(out_file, err_file, cmd, 4, args.go)
 
     if not args.go:
         print_yellow('''
