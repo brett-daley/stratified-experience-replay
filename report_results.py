@@ -5,6 +5,7 @@ import re
 import os
 import yaml
 from glob import glob
+import pandas as pd
 
 METRICS = ('timestep', 'episode', 'avg_return', 'epsilon', 'hours')
 
@@ -90,16 +91,27 @@ def main():
         os.mkdir(args.output_dir)
 
     config = get_config()
+    game_list = []
+    e_list = []
+    score_list = []
 
     for plot_name, experiments in config.items():
-        print("\n")
 
         for e in experiments:
             assert '_seed-' not in e
 
             report = parse_one(args.input_dir, e)
             y = report['avg_return']
-            print(f'{e} average score is: {np.nanmean(y)}')
+
+            game_list.append(plot_name)
+            e_list.append(e)
+            score_list.append(np.nanmean(y))
+
+    df = pd.DataFrame(zip(game_list, score_list), index=e_list, columns=['game', 'exp_mean_score'])
+    df_sorted = df.sort_values(by=['game', 'exp_mean_score'], ascending=[True, False])
+
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+        print(df_sorted)
 
 
 if __name__ == '__main__':
