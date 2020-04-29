@@ -16,12 +16,6 @@ def new_report():
     return report
 
 
-def grab(pattern, string):
-    assert '()' in pattern
-    pattern = pattern.replace('()', '(.*?)(?=_|$)')
-    return re.search(pattern, string).group(1)
-
-
 def get_data_lines(path):
     pattern = re.compile(r'^[0-9]+\s{2}')
     lines = []
@@ -85,17 +79,6 @@ def parse_one(directory, key):
     return report
 
 
-def save(name, directory, pdf):
-    path = os.path.join(directory, name)
-    if pdf:
-        path += '.pdf'
-        plt.savefig(path, format='pdf')
-    else:
-        path += '.png'
-        plt.savefig(path, format='png')
-    print(f'Saved plot as {path}', flush=True)
-
-
 def main():
     parser = ArgumentParser()
     parser.add_argument('--input_dir', type=str, default='results')
@@ -105,65 +88,17 @@ def main():
 
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
-    easy_save = lambda name: save(name, args.output_dir, args.pdf)
 
     config = get_config()
 
     for plot_name, experiments in config.items():
-        fig = plt.figure(figsize=(17, 7))
-        ax = plt.subplot(111)
-        y_best = -np.inf
-        y_best_label = None
-        y_best_color = None
-        new_n_flag = False
-        old_n = None
 
         for e in experiments:
             assert '_seed-' not in e
 
-            n_val = re.search('n-(\d)', e)
-            found_n = n_val.group(1)
-
-            if old_n is not None and old_n != found_n:
-                new_n_flag = True
-            old_n = found_n
-
             report = parse_one(args.input_dir, e)
-            x = report['timestep']
             y = report['avg_return']
-            color = 'red' if 'n-1' in e \
-                else 'green' if 'n-3' in e \
-                else 'blue' if 'n-5' in e \
-                else 'magenta' if 'n-7' in e \
-                else 'cyan'
-            x, y = map(np.array, [x, y])
-
-            # Determine which m-trace to plot
-            if 'True' in e:
-                ax.plot(x, y, label=e, color=color, linestyle='-')
-            elif 'False' in e:
-                if new_n_flag:
-                    ax.plot(x, y_best, label="best-m_"+y_best_label, color=y_best_color, linestyle=':')
-                    y_best = -np.inf
-                    y_best_label = None
-                    y_best_color = None
-                    new_n_flag = False
-                if np.mean(y) > np.mean(y_best):
-                    y_best = y
-                    y_best_label = e
-                    y_best_color = color
-
-        ax.plot(x, y_best, label="best-m_"+y_best_label, color=y_best_color, linestyle=':')
-
-        # Shrink current axis by 20%
-        box = ax.get_position()
-        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-
-        # Put a legend to the right of the current axis
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-        easy_save(plot_name+"_best-m")
-        plt.close()
+            print(f'{e} average score is: {np.nanmean(y)}')
 
 
 if __name__ == '__main__':
