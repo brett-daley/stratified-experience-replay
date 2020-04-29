@@ -92,6 +92,7 @@ def main():
     config = get_config()
 
     for plot_name, experiments in config.items():
+        print("\n")
 
         for e in experiments:
             assert '_seed-' not in e
