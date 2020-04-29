@@ -23,10 +23,11 @@ def make_q_function(input_shape, n_actions):
 
 
 class DQNAgent:
-    def __init__(self, env, nsteps, minibatches, discount=0.99):
+    def __init__(self, env, nsteps, mstraps, minibatches, discount=0.99):
         self.env = env
         assert nsteps >= 1
         self.nsteps = nsteps
+        self.mstraps = mstraps  # Only used by BatchmodeDQNAgent
         assert minibatches >= 1
         self.minibatches = minibatches
         self.discount = discount
@@ -47,8 +48,8 @@ class DQNAgent:
     def save(self, *transition):
         self.replay_memory.save(*transition)
 
-    def _sample(self, nsteps):
-        return self.replay_memory.sample(self.discount, nsteps)
+    def _sample(self):
+        return self.replay_memory.sample(self.discount, self.nsteps)
 
     def _preprocess(self, observation):
         return tf.cast(observation, tf.float32) / 255.0
@@ -74,13 +75,13 @@ class DQNAgent:
         train_freq_frac, train_freq_int = math.modf(self.minibatches / update_freq)
         # The integer portion tells us the minimum number of minibatches we do each timestep
         for _ in range(int(train_freq_int)):
-            minibatch = self._sample(self.nsteps)
+            minibatch = self._sample()
             self._train(*minibatch)
         # The fractional portion tells us how often to add an extra minibatch
         if train_freq_frac != 0.0:
             extra_train_freq = round(1.0 / train_freq_frac)
             if (t % extra_train_freq) == 0:
-                minibatch = self._sample(self.nsteps)
+                minibatch = self._sample()
                 self._train(*minibatch)
 
     @tf.function
@@ -112,11 +113,11 @@ class DQNAgent:
 class BatchmodeDQNAgent(DQNAgent):
     def update(self, t):
         if (t % 10_000) == 0:
-            for _ in range(self.nsteps):
+            for _ in range(self.mstraps):
                 self.copy_target_network()
 
-                for _ in range(self.minibatches):
-                    minibatch = self._sample(nsteps=1)
+                for _ in range(self.minibatches // self.nsteps):
+                    minibatch = self._sample()
                     self._train(*minibatch)
 
 
@@ -178,7 +179,7 @@ def train(env, agent, timesteps, seed):
 
     observation = env.reset()
 
-    print(f'Training {type(agent).__name__} (n={agent.nsteps}, m={agent.minibatches}) on {env.unwrapped.game} for {timesteps} timesteps with seed={seed}')
+    print(f'Training {type(agent).__name__} (n={agent.nsteps}, m={agent.mstraps}, k={agent.minibatches}) on {env.unwrapped.game} for {timesteps} timesteps with seed={seed}')
     print('timestep', 'episode', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
     for t in range(-250_000, timesteps+1):  # Relative to training start
         epsilon = epsilon_schedule(t)
@@ -205,7 +206,9 @@ def add_common_args(parser):
                         help='(str) Name of Atari game. Default: pong')
     parser.add_argument('-n', '--nsteps', type=int, default=1,
                         help='(int) Number of rewards to use before bootstrapping. Default: 1')
-    parser.add_argument('-m', '--minibatches', type=int, default=2500,
+    parser.add_argument('-m', '--mstraps', type=int, default=1,
+                        help='(int) Number of bootstrapping. Default: 1')
+    parser.add_argument('-k', '--minibatches', type=int, default=2500,
                         help='(int) Number of minibatches per training epoch. Default: 2500')
     parser.add_argument('--timesteps', type=int, default=3_000_000,
                         help='(int) Training duration. Default: 3_000_000')
@@ -216,13 +219,11 @@ def add_common_args(parser):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     add_common_args(parser)
-    parser.add_argument('--batchmode', type=strtobool, default=False,
-                        help='(bool) Activates batch training if present. Default: False')
     args = parser.parse_args()
 
     env = atari_env.make(args.env, args.seed)
 
-    agent_cls = BatchmodeDQNAgent if args.batchmode else DQNAgent
-    agent = agent_cls(env, args.nsteps, args.minibatches)
+    agent_cls = BatchmodeDQNAgent if (args.mstraps > 0) else DQNAgent
+    agent = agent_cls(env, args.nsteps, args.mstraps, args.minibatches)
 
     train(env, agent, args.timesteps, args.seed)
