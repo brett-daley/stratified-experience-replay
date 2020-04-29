@@ -2,3 +2,5 @@ __pycache__
 *.pyc
 
 monitor
+tabular_plots
+tabular_results
