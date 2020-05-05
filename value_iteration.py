@@ -67,16 +67,10 @@ class TabularEnv:
 
 
 class ValueIterationAgent:
-    def __init__(self, env, nstep=1, use_multibatch=False):
+    def __init__(self, env, nstep=1, mstrap=1):
         self.env = env
-
-        if use_multibatch:
-            self.nstep = 1
-            self.multibatch = nstep
-        else:
-            self.nstep = nstep
-            self.multibatch = 1
-
+        self.nstep = nstep
+        self.mstrap = mstrap
         self.values = np.zeros(shape=[env.S], dtype=np.float32)
         self.policy = np.random.choice(env.actions(), size=env.S)
         self._copy()
@@ -90,7 +84,7 @@ class ValueIterationAgent:
         return np.abs(self.values - self._old_values).max()
 
     def update_with_sweep(self):
-        for _ in range(self.multibatch):
+        for _ in range(self.mstrap):
             self._copy()
             for s in self.env.states():
                 returns = [self._full_backup(s, a) for a in self.env.actions()]
@@ -106,7 +100,7 @@ class ValueIterationAgent:
         return (self.env.model(s1, a) * returns).sum()
 
     def update_with_samples(self, k):
-        for _ in range(self.multibatch):
+        for _ in range(self.mstrap):
             self._copy()
             for s in self.env.states():
                 returns = [self._sample_backup(s, a, k) for a in self.env.actions()]
@@ -192,10 +186,10 @@ def normalized_samples(env, agent):
 
 
 def run(env, start_state, terminal_state,
-        nstep, use_multibatch, samples_per_iteration, max_iterations,
+        nstep, mstrap, samples_per_iteration, max_iterations,
         verbose=True):
     optimal_values = compute_optimal_values(env)
-    agent = ValueIterationAgent(env, nstep, use_multibatch)
+    agent = ValueIterationAgent(env, nstep, mstrap)
 
     if verbose:
         print('iteration  normalized_samples  rms  undisc_return  disc_return')
@@ -215,14 +209,15 @@ def run(env, start_state, terminal_state,
         if i == max_iterations:
             break
 
-        agent.update_with_samples(k=samples_per_iteration)
+        assert (samples_per_iteration % mstrap) == 0
+        agent.update_with_samples(k=samples_per_iteration//mstrap)
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('env_name', type=str)
     parser.add_argument('-n', '--nstep', type=int, default=1)
-    parser.add_argument('-m', '--multibatch', type=strtobool, default='False')
+    parser.add_argument('-m', '--mstrap', type=int, default=1)
     parser.add_argument('-s', '--samples', type=int, default=100)
     parser.add_argument('-i', '--iterations', type=int, default=20)
     parser.add_argument('--seed', type=int, default=0)
@@ -252,5 +247,5 @@ if __name__ == '__main__':
     assert terminal_state == env.S - 1
 
     run(env, start_state, terminal_state,
-        args.nstep, args.multibatch, args.samples, args.iterations,
+        args.nstep, args.mstrap, args.samples, args.iterations,
         args.verbose)
