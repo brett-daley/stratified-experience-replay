@@ -126,7 +126,8 @@ def main():
                 else 'cyan'
             linestyle = '-' if 'True' in e else ':'
             x, y = map(np.array, [x, y])
-            ax.plot(x, y, label=e, color=color, linestyle=linestyle)
+            # ax.plot(x, y, label=e, color=color, linestyle=linestyle)
+            ax.plot(x, y, label=e, linestyle=linestyle)
 
         # Shrink current axis by 20%
         box = ax.get_position()

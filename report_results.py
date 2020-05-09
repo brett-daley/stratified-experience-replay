@@ -80,8 +80,43 @@ def parse_one(directory, key):
     return report
 
 
+def print_yellow(string):
+    print('\033[1;33;40m' + string + '\033[0;37;40m')
+
+
+def build_df(game_list, score_list, experiment_list):
+    df = pd.DataFrame(zip(game_list, score_list), index=experiment_list, columns=['game', 'avg_return'])
+    return df
+
+
+def output_df(dataframe, avg_return_flag=False, median_flag=False):
+    print(avg_return_flag)
+    print(median_flag)
+    if avg_return_flag is False and median_flag is False:
+        print_yellow('No flag specified. To view results, add --all_avg_returns and/or --game_medians')
+
+    if avg_return_flag:
+        df_sorted = dataframe.sort_values(by=['game', 'avg_return'], ascending=[True, False])
+        with pd.option_context('display.max_rows', None):
+            print(df_sorted)
+
+    if median_flag:
+        target = pd.concat([
+            dataframe['game'],
+            dataframe.groupby('game').transform(lambda x: (x / x.max()))
+        ], axis=1)
+        target_med = target.groupby('game').median()
+        target_med.columns = ['median normalized score']
+        print(target_med)
+
+
 def main():
     parser = ArgumentParser()
+    parser.add_argument('--all_avg_returns', action='store_true',
+                        help='(flag) Displays average return for each results file. Default disabled.')
+    parser.add_argument('--game_medians', action='store_true',
+                        help='(flag) Displays median of all normalized scores for a given game, across all games. \
+                        Default disabled')
     parser.add_argument('--input_dir', type=str, default='results')
     parser.add_argument('--output-dir', type=str, default='plots')
     parser.add_argument('--pdf', action='store_true')
@@ -107,11 +142,9 @@ def main():
             e_list.append(e)
             score_list.append(np.nanmean(y))
 
-    df = pd.DataFrame(zip(game_list, score_list), index=e_list, columns=['game', 'exp_mean_score'])
-    df_sorted = df.sort_values(by=['game', 'exp_mean_score'], ascending=[True, False])
+    df = build_df(game_list, score_list, e_list)
 
-    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-        print(df_sorted)
+    output_df(df, avg_return_flag=args.all_avg_returns, median_flag=args.game_medians)
 
 
 if __name__ == '__main__':
