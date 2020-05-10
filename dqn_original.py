@@ -32,7 +32,7 @@ class DQNAgent:
         self.minibatches = minibatches
         self.discount = discount
         self.replay_memory = ReplayMemory(env)
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, epsilon=1e-4)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5, epsilon=1e-4)
 
         input_shape = env.observation_space.shape
         self.n_actions = env.action_space.n
@@ -166,12 +166,6 @@ def epsilon_schedule(t, timeframe=1_000_000, min_epsilon=0.1):
     # epsilon set constant at 0.1
     return 0.1
 
-def train(env, agent, nsteps, timesteps, seed):
-    tf.random.set_seed(seed)
-    np.random.seed(seed)
-
-    agent = agent_cls(env, nsteps)
-    observation = env.reset()
 
 def train(env, agent, timesteps, seed):
     tf.random.set_seed(seed)
