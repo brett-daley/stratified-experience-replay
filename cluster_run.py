@@ -6,7 +6,7 @@ import math
 ######### RUN PARAMETERS #########
 env_grid = ['beam_rider', 'breakout', 'pong', 'seaquest', 'space_invaders']
 n_grid = [1, 3, 5, 7]  # n-step learning
-m_grid = [0, 1, 2, 3]  # m-strap learning (0 means disabled)
+m_grid = [0, 2, 3, 4]  # m-strap learning (0 means disabled)
 seed_grid = range(1)
 
 # CAUTION: Changes in timesteps will NOT be reflected in output/err file names
