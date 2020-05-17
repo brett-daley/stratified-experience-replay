@@ -90,8 +90,6 @@ def build_df(game_list, score_list, experiment_list):
 
 
 def output_df(dataframe, avg_return_flag=False, median_flag=False):
-    print(avg_return_flag)
-    print(median_flag)
     if avg_return_flag is False and median_flag is False:
         print_yellow('No flag specified. To view results, add --all_avg_returns and/or --game_medians')
 
