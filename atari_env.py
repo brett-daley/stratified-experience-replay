@@ -4,10 +4,13 @@ from gym.wrappers import Monitor
 import numpy as np
 from collections import deque
 import cv2
+from datetime import datetime
+import os
 
 def make(game, seed, size=84, grayscale=True, history_len=4):
     env = AtariEnv(game, frameskip=4, obs_type='image')
-    env = Monitor(env, directory='monitor', force=True, video_callable=lambda e: False)
+    monitor_dir = os.path.join('monitor', game, datetime.now().strftime(r'%Y.%m.%d_%H.%M.%S'))
+    env = Monitor(env, directory=monitor_dir, video_callable=lambda e: False)
 
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetWrapper(env)
