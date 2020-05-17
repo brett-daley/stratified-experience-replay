@@ -9,7 +9,7 @@ import os
 
 def make(game, seed, size=84, grayscale=True, history_len=4):
     env = AtariEnv(game, frameskip=4, obs_type='image')
-    monitor_dir = os.path.join('monitor', game, datetime.now().strftime(r'%Y.%m.%d_%H.%M.%S'))
+    monitor_dir = os.path.join('monitor', game, datetime.now().strftime(r'%Y.%m.%d_%H.%M.%S.%f'))
     env = Monitor(env, directory=monitor_dir, video_callable=lambda e: False)
 
     if 'FIRE' in env.unwrapped.get_action_meanings():
