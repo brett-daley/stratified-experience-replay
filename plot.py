@@ -96,6 +96,31 @@ def save(name, directory, pdf):
     print(f'Saved plot as {path}', flush=True)
 
 
+def format_plot():
+    ax = plt.gca()
+    ax.set_aspect(1.0 / ax.get_data_ratio())
+    plt.gcf().set_size_inches(6.4, 6.4)
+    plt.tight_layout(pad=0.05)
+
+    plt.legend(loc='best', framealpha=1.0, fontsize=12)
+    plt.grid(b=True, which='both', axis='both')
+
+
+def set_plot_attributes(params):
+    if 'title' in params:
+        plt.title(params['title'])
+    if 'xlabel' in params:
+        plt.xlabel(params['xlabel'])
+    if 'ylabel' in params:
+        plt.ylabel(params['ylabel'])
+    if 'xlim' in params:
+        plt.xlim(params['xlim'])
+    if 'ylim' in params:
+        plt.ylim(params['ylim'])
+    if ('ylog' in params) and params['ylog']:
+        plt.yscale('log')
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument('--input_dir', type=str, default='results')
@@ -105,39 +130,34 @@ def main():
 
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
-    easy_save = lambda name: save(name, args.output_dir, args.pdf)
 
     config = get_config()
 
-    for plot_name, experiments in config.items():
-        fig = plt.figure(figsize=(17, 7))
-        ax = plt.subplot(111)
+    for plot_group, group_params in config.items():
+        for plot_name, plot_params in group_params['plots'].items():
+            plt.figure()
+            plt.rc('xtick', labelsize=16)
+            plt.rc('ytick', labelsize=16)
+            plt.rcParams.update({'font.size': 22})
+            set_plot_attributes(group_params)
 
-        for e in experiments:
-            assert '_seed-' not in e
+            for e, label, color in zip(plot_params['experiments'],
+                                       group_params['labels'],
+                                       group_params['colors']):
+                set_plot_attributes(plot_params)  # Overrides group parameters
+                assert '_seed-' not in e
+                report = parse_one(args.input_dir, e)
+                xmetric = plot_params['xmetric'] if 'xmetric' in plot_params else group_params['xmetric']
+                ymetric = plot_params['ymetric'] if 'ymetric' in plot_params else group_params['ymetric']
+                try:
+                    x, y = map(np.array, [report[xmetric], report[ymetric]])
+                except:
+                    print(report.keys())
+                plt.plot(x, y, color, label=label)
 
-            report = parse_one(args.input_dir, e)
-            x = report['timestep']
-            y = report['avg_return']
-            color = 'red' if 'n-1' in e \
-                else 'green' if 'n-3' in e \
-                else 'blue' if 'n-5' in e \
-                else 'magenta' if 'n-7' in e \
-                else 'cyan'
-            linestyle = '-' if 'True' in e else ':'
-            x, y = map(np.array, [x, y])
-            # ax.plot(x, y, label=e, color=color, linestyle=linestyle)
-            ax.plot(x, y, label=e, linestyle=linestyle)
-
-        # Shrink current axis by 20%
-        box = ax.get_position()
-        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-
-        # Put a legend to the right of the current axis
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-        easy_save(plot_name)
-        plt.close()
+            format_plot()
+            save(plot_name, args.output_dir, args.pdf)
+            plt.close()
 
 
 if __name__ == '__main__':
