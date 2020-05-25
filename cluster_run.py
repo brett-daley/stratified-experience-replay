@@ -2,9 +2,11 @@ import argparse
 import subprocess
 import os.path
 import math
+from atari_env import ALL_GAMES
 
 ######### RUN PARAMETERS #########
 env_grid = ['beam_rider', 'breakout', 'pong', 'seaquest', 'space_invaders']
+# env_grid = ALL_GAMES
 n_grid = [1, 3, 5, 7]  # n-step learning
 m_grid = [0, 2, 3, 4]  # m-strap learning (0 means disabled)
 seed_grid = range(1)
