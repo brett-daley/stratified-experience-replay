@@ -127,6 +127,7 @@ class PreprocessedImageWrapper(gym.ObservationWrapper):
 
 
 ALL_GAMES = (
+    # Classic 57 from ALE
     'alien',
     'amidar',
     'assault',
@@ -184,4 +185,13 @@ ALL_GAMES = (
     'wizard_of_wor',
     'yars_revenge',
     'zaxxon',
+
+    # Extra games in OpenAI Gym
+    'adventure',
+    'air_raid',
+    'carnival',
+    'elevator_action',
+    'journey_escape',
+    'kaboom',
+    'pooyan',
 )
