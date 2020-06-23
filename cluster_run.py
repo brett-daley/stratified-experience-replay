@@ -18,7 +18,7 @@ timesteps = 5_000_000
 
 def dispatch(out_file, err_file, cmd, max_hours, go):
     """
-    Populates 'runscript.sh' file to run 'dqn_original.py' file
+    Populates 'runscript.sh' file to run 'dqn.py' file
     on cluster's GPU partition for 'max_hours' hours with 1 node, 1 core, and 32GB memory
     """
     with open('runscript.sh', 'w+') as f:
@@ -78,7 +78,7 @@ def main():
                     basename = f'env-{env_no_underscore}_n-{n}_m-{m}_seed-{seed}'
                     out_file = basename + '.txt'
                     err_file = basename + '.err.txt'
-                    cmd = f'python3 dqn_original.py --env {env} -n {n} -m {m} --timesteps {timesteps} --seed {seed}'
+                    cmd = f'python3 dqn.py --env {env} -n {n} -m {m} --timesteps {timesteps} --seed {seed}'
 
                     # If file for a configuration exists, skip over that configuration
                     if os.path.exists(out_file) or os.path.exists(err_file):
@@ -86,7 +86,7 @@ def main():
                         continue
 
                     # Otherwise, generate and run script on cluster
-                    # Populates 'runscript.sh' file to run 'dqn_original.py' file
+                    # Populates 'runscript.sh' file to run 'dqn.py' file
                     # on cluster's GPU partition with 1 node, 1 core, and 32GB memory
                     # Dispatches 'runscript.sh' to SLURM if '--go' flag was specified in CLI
                     print(basename)
