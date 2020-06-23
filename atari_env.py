@@ -4,9 +4,13 @@ from gym.wrappers import Monitor
 import numpy as np
 from collections import deque
 import cv2
+from datetime import datetime
+import os
 
 def make(game, seed, size=84, grayscale=True, history_len=4):
     env = AtariEnv(game, frameskip=4, obs_type='image')
+    monitor_dir = os.path.join('monitor', game, datetime.now().strftime(r'%Y.%m.%d_%H.%M.%S.%f'))
+    env = Monitor(env, directory=monitor_dir, video_callable=lambda e: False)
 
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetWrapper(env)
@@ -16,7 +20,6 @@ def make(game, seed, size=84, grayscale=True, history_len=4):
     env = PreprocessedImageWrapper(env, size, grayscale)
     if history_len > 1:
         env = HistoryWrapper(env, history_len)
-    env = Monitor(env, directory='monitor', force=True, video_callable=lambda e: False)
 
     env.seed(seed)
     env.action_space.seed(seed)
@@ -38,10 +41,10 @@ class EpisodicLifeWrapper(gym.Wrapper):
         self.observation, reward, done, info = self.env.step(action)
         self.was_real_done = done
         lives = self.env.unwrapped.ale.lives()
-        if lives < self.lives:
+        if 0 < lives < self.lives:
             # We lost a life, but force a reset only if it's not game over.
             # Otherwise, the environment just handles it automatically.
-            done = (lives > 0)
+            done = True
         self.lives = lives
         return self.observation, reward, done, info
 
@@ -121,3 +124,74 @@ class PreprocessedImageWrapper(gym.ObservationWrapper):
             observation = cv2.cvtColor(observation, cv2.COLOR_BGR2GRAY)
         observation = cv2.resize(observation, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
         return observation.reshape(self.shape).astype(np.uint8)
+
+
+ALL_GAMES = (
+    # Classic 57 from ALE
+    'alien',
+    'amidar',
+    'assault',
+    'asterix',
+    'asteroids',
+    'atlantis',
+    'bank_heist',
+    'battle_zone',
+    'beam_rider',
+    'berzerk',
+    'bowling',
+    'boxing',
+    'breakout',
+    'centipede',
+    'chopper_command',
+    'crazy_climber',
+    # 'defender',
+    'demon_attack',
+    'double_dunk',
+    'enduro',
+    'fishing_derby',
+    'freeway',
+    'frostbite',
+    'gopher',
+    'gravitar',
+    'hero',
+    'ice_hockey',
+    'jamesbond',
+    'kangaroo',
+    'krull',
+    'kung_fu_master',
+    'montezuma_revenge',
+    'ms_pacman',
+    'name_this_game',
+    'phoenix',
+    'pitfall',
+    'pong',
+    'private_eye',
+    'qbert',
+    'riverraid',
+    'road_runner',
+    'robotank',
+    'seaquest',
+    'skiing',
+    'solaris',
+    'space_invaders',
+    'star_gunner',
+    # 'surround',
+    'tennis',
+    'time_pilot',
+    'tutankham',
+    'up_n_down',
+    'venture',
+    'video_pinball',
+    'wizard_of_wor',
+    'yars_revenge',
+    'zaxxon',
+
+    # Extra games in OpenAI Gym
+    'adventure',
+    'air_raid',
+    'carnival',
+    'elevator_action',
+    'journey_escape',
+    'kaboom',
+    'pooyan',
+)

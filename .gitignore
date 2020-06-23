@@ -1,6 +1,11 @@
 __pycache__
 *.pyc
 
+.DS_Store
 monitor
+runscript.sh
+plots
+results
+plot_config.yaml
 tabular_plots
 tabular_results
