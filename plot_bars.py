@@ -66,7 +66,7 @@ def main():
 
     plt.tight_layout(pad=0.2)
 
-    save("bar_plot_new", args.output_dir, args.pdf)
+    save("bar_plot_newest", args.output_dir, args.pdf)
     plt.close()
 
 
