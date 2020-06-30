@@ -11,13 +11,10 @@ import math
 import atari_env
 
 
-def make_q_function(input_shape, n_actions):
+def make_q_function(input_shape, n_actions, h_size=512):
     layers = [InputLayer(input_shape),
-              Conv2D(32, kernel_size=8, strides=4, activation='relu'),
-              Conv2D(64, kernel_size=4, strides=2, activation='relu'),
-              Conv2D(64, kernel_size=3, strides=1, activation='relu'),
-              Flatten(),
-              Dense(512, activation='relu'),
+              Dense(h_size, activation='tanh'),
+              Dense(h_size, activation='tanh'),
               Dense(n_actions)]
     return tf.keras.models.Sequential(layers)
 
@@ -32,7 +29,7 @@ class DQNAgent:
         self.minibatches = minibatches
         self.discount = discount
         self.replay_memory = ReplayMemory(env)
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5, epsilon=1e-4)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, epsilon=1e-8)
 
         input_shape = env.observation_space.shape
         self.n_actions = env.action_space.n
@@ -52,7 +49,7 @@ class DQNAgent:
         return self.replay_memory.sample(self.discount, self.nsteps)
 
     def _preprocess(self, observation):
-        return tf.cast(observation, tf.float32) / 255.0
+        return tf.cast(observation, tf.float32)
 
     def _q_values(self, observation):
         return self.q_function(observation)
@@ -122,7 +119,7 @@ class BatchmodeDQNAgent(DQNAgent):
 
 
 class ReplayMemory:
-    def __init__(self, env, batch_size=32, capacity=1_000_000):
+    def __init__(self, env, batch_size=32, capacity=500_000):
         self.batch_size = batch_size
         self.capacity = capacity
         self.size_now = 0
@@ -161,10 +158,10 @@ class ReplayMemory:
         return observations, actions, nstep_rewards, done_mask, bootstrap_observations
 
 
-def epsilon_schedule(t, timeframe=1_000_000, min_epsilon=0.1):
-    # return np.clip(1.0 - (1.0 - min_epsilon) * (t / timeframe), min_epsilon, 1.0)
+def epsilon_schedule(t, timeframe=300_000, min_epsilon=0.1):
+    return np.clip(1.0 - (1.0 - min_epsilon) * (t / timeframe), min_epsilon, 1.0)
     # epsilon set constant at 0.1
-    return 0.1
+    # return 0.1
 
 
 def train(env, agent, timesteps, seed):
@@ -173,9 +170,9 @@ def train(env, agent, timesteps, seed):
 
     observation = env.reset()
 
-    print(f'Training {type(agent).__name__} (n={agent.nsteps}, m={agent.mstraps}, k={agent.minibatches}) on {env.unwrapped.game} for {timesteps} timesteps with seed={seed}')
+    print(f'Training {type(agent).__name__} (n={agent.nsteps}, m={agent.mstraps}, k={agent.minibatches}) on {env.spec.id} for {timesteps} timesteps with seed={seed}')
     print('timestep', 'episode', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
-    for t in range(-250_000, timesteps+1):  # Relative to training start
+    for t in range(-50_000, timesteps+1):  # Relative to training start
         epsilon = epsilon_schedule(t)
 
         if t == 0:
@@ -195,7 +192,8 @@ def train(env, agent, timesteps, seed):
         observation = env.reset() if done else new_observation
 
 
-def add_common_args(parser):
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='pong',
                         help='(str) Name of Atari game. Default: pong')
     parser.add_argument('-n', '--nsteps', type=int, default=1,
@@ -208,11 +206,6 @@ def add_common_args(parser):
                         help='(int) Training duration. Default: 3_000_000')
     parser.add_argument('--seed', type=int, default=0,
                         help='(int) Seed for random number generation. Default: 0')
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    add_common_args(parser)
     args = parser.parse_args()
 
     env = atari_env.make(args.env, args.seed)

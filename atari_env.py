@@ -8,18 +8,19 @@ from datetime import datetime
 import os
 
 def make(game, seed, size=84, grayscale=True, history_len=4):
-    env = AtariEnv(game, frameskip=4, obs_type='image')
+    # env = AtariEnv(game, frameskip=4, obs_type='image')
+    env = gym.make(game)
     monitor_dir = os.path.join('monitor', game, datetime.now().strftime(r'%Y.%m.%d_%H.%M.%S.%f'))
     env = Monitor(env, directory=monitor_dir, video_callable=lambda e: False)
 
-    if 'FIRE' in env.unwrapped.get_action_meanings():
-        env = FireResetWrapper(env)
-    env = NoopResetWrapper(env)
-    env = EpisodicLifeWrapper(env)
-    env = ClippedRewardWrapper(env)
-    env = PreprocessedImageWrapper(env, size, grayscale)
-    if history_len > 1:
-        env = HistoryWrapper(env, history_len)
+    # if 'FIRE' in env.unwrapped.get_action_meanings():
+    #     env = FireResetWrapper(env)
+    # env = NoopResetWrapper(env)
+    # env = EpisodicLifeWrapper(env)
+    # env = ClippedRewardWrapper(env)
+    # env = PreprocessedImageWrapper(env, size, grayscale)
+    # if history_len > 1:
+    #     env = HistoryWrapper(env, history_len)
 
     env.seed(seed)
     env.action_space.seed(seed)
