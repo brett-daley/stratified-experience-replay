@@ -1,1 +1,2 @@
 from dqn_utils.replay_memory import ReplayMemory
+from dqn_utils.models import get_model_fn_by_name

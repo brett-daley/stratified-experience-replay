@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, Dense, Flatten, InputLayer
+from tensorflow.keras.layers import Dense, InputLayer
 import numpy as np
 import argparse
 import os
@@ -9,33 +9,32 @@ import time
 import math
 
 import atari_env
-from dqn_utils import ReplayMemory
-
-
-def make_q_function(input_shape, n_actions, h_size=512):
-    layers = [InputLayer(input_shape),
-              Dense(h_size, activation='tanh'),
-              Dense(h_size, activation='tanh'),
-              Dense(n_actions)]
-    return tf.keras.models.Sequential(layers)
+from dqn_utils import ReplayMemory, get_model_fn_by_name
 
 
 class DQNAgent:
-    def __init__(self, env, nsteps, mstraps, minibatches, discount=0.99):
+    def __init__(self, env, nsteps, mstraps, minibatches, **kwargs):
         self.env = env
         assert nsteps >= 1
         self.nsteps = nsteps
         self.mstraps = mstraps  # Only used by BatchmodeDQNAgent
         assert minibatches >= 1
         self.minibatches = minibatches
-        self.discount = discount
+        self.discount = kwargs['discount']
         self.replay_memory = ReplayMemory(env)
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, epsilon=1e-8)
 
         input_shape = env.observation_space.shape
         self.n_actions = env.action_space.n
-        self.q_function = make_q_function(input_shape, self.n_actions)
-        self.target_q_function = make_q_function(input_shape, self.n_actions)
+        model_fn = get_model_fn_by_name(kwargs['model_name'])
+
+        def make_q_function():
+            return tf.keras.models.Sequential([InputLayer(input_shape),
+                                               *model_fn(),
+                                               Dense(self.n_actions)])
+
+        self.q_function = make_q_function()
+        self.target_q_function = make_q_function()
         print(self.q_function.summary())
 
     def policy(self, observation, epsilon):
@@ -172,6 +171,6 @@ if __name__ == '__main__':
     env = atari_env.make(args.env, args.seed)
 
     agent_cls = BatchmodeDQNAgent if (args.mstraps > 0) else DQNAgent
-    agent = agent_cls(env, args.nsteps, args.mstraps, args.minibatches)
+    agent = agent_cls(env, args.nsteps, args.mstraps, args.minibatches, discount=0.99, model_name='cartpole_mlp')
 
     train(env, agent, args.timesteps, args.seed)
