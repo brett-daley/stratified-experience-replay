@@ -8,8 +8,7 @@ from distutils.util import strtobool
 import time
 import math
 
-import atari_env
-from dqn_utils import ReplayMemory, get_model_fn_by_name
+from dqn_utils import ReplayMemory, get_model_fn_by_name, envs
 
 
 class DQNAgent:
@@ -130,7 +129,6 @@ def train(env, agent, timesteps, seed):
 
     observation = env.reset()
 
-    print(f'Training {type(agent).__name__} (n={agent.nsteps}, m={agent.mstraps}, k={agent.minibatches}) on {env.spec.id} for {timesteps} timesteps with seed={seed}')
     print('timestep', 'episode', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
     for t in range(-50_000, timesteps+1):  # Relative to training start
         epsilon = epsilon_schedule(t)
@@ -168,9 +166,10 @@ if __name__ == '__main__':
                         help='(int) Seed for random number generation. Default: 0')
     args = parser.parse_args()
 
-    env = atari_env.make(args.env, args.seed)
+    env = envs.make(args.env, args.seed)
 
     agent_cls = BatchmodeDQNAgent if (args.mstraps > 0) else DQNAgent
     agent = agent_cls(env, args.nsteps, args.mstraps, args.minibatches, discount=0.99, model_name='cartpole_mlp')
 
+    print(f'Training {type(agent).__name__} (n={agent.nsteps}, m={agent.mstraps}, k={agent.minibatches}) on {args.env} for {args.timesteps} timesteps with seed={args.seed}')
     train(env, agent, args.timesteps, args.seed)

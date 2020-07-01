@@ -1,29 +1,22 @@
 import gym
 from gym.envs.atari.atari_env import AtariEnv
-from gym.wrappers import Monitor
 import numpy as np
 from collections import deque
 import cv2
-from datetime import datetime
-import os
 
-def make(game, seed, size=84, grayscale=True, history_len=4):
-    # env = AtariEnv(game, frameskip=4, obs_type='image')
-    env = gym.make(game)
-    monitor_dir = os.path.join('monitor', game, datetime.now().strftime(r'%Y.%m.%d_%H.%M.%S.%f'))
-    env = Monitor(env, directory=monitor_dir, video_callable=lambda e: False)
+import dqn_utils
 
-    # if 'FIRE' in env.unwrapped.get_action_meanings():
-    #     env = FireResetWrapper(env)
-    # env = NoopResetWrapper(env)
-    # env = EpisodicLifeWrapper(env)
-    # env = ClippedRewardWrapper(env)
-    # env = PreprocessedImageWrapper(env, size, grayscale)
-    # if history_len > 1:
-    #     env = HistoryWrapper(env, history_len)
-
-    env.seed(seed)
-    env.action_space.seed(seed)
+def make(game, size=84, grayscale=True, history_len=4):
+    env = AtariEnv(game, frameskip=4, obs_type='image')
+    env = dqn_utils.envs.monitor(env, game)
+    if 'FIRE' in env.unwrapped.get_action_meanings():
+        env = FireResetWrapper(env)
+    env = NoopResetWrapper(env)
+    env = EpisodicLifeWrapper(env)
+    env = ClippedRewardWrapper(env)
+    env = PreprocessedImageWrapper(env, size, grayscale)
+    if history_len > 1:
+        env = HistoryWrapper(env, history_len)
     return env
 
 class ClippedRewardWrapper(gym.RewardWrapper):
