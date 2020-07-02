@@ -121,10 +121,7 @@ class BatchmodeDQNAgent(DQNAgent):
                     self._train(*minibatch)
 
 
-def train(env, agent, prepopulate, epsilon_schedule, timesteps, seed):
-    tf.random.set_seed(seed)
-    np.random.seed(seed)
-
+def train(env, agent, prepopulate, epsilon_schedule, timesteps):
     observation = env.reset()
 
     print('timestep', 'episode', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
@@ -164,6 +161,9 @@ if __name__ == '__main__':
                         help='(int) Seed for random number generation. Default: 0')
     args = parser.parse_args()
 
+    tf.random.set_seed(args.seed)
+    np.random.seed(args.seed)
+
     env = dqn_utils.make_env(args.env, args.seed)
     hparams = dqn_utils.get_hparams(args.env)
 
@@ -177,4 +177,4 @@ if __name__ == '__main__':
     agent = agent_cls(env, args.nsteps, args.minibatches, **hparams)
 
     print(f'Training {type(agent).__name__} (n={args.nsteps}, m={args.mstraps}, k={args.minibatches}) on {args.env} for {args.timesteps} timesteps with seed={args.seed}')
-    train(env, agent, hparams['prepopulate'], hparams['epsilon_schedule'], args.timesteps, args.seed)
+    train(env, agent, hparams['prepopulate'], hparams['epsilon_schedule'], args.timesteps)
