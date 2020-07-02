@@ -1,1 +1,1 @@
-from dqn_utils.envs.make import make, monitor
+from dqn_utils.envs import make

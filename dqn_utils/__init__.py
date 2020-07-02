@@ -1,2 +1,2 @@
-from dqn_utils.replay_memory import ReplayMemory
-from dqn_utils.models import get_model_fn_by_name
+from dqn_utils.envs.make import make_env
+from dqn_utils.hparams import get_hparams

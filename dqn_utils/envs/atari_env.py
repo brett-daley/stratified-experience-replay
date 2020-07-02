@@ -4,11 +4,11 @@ import numpy as np
 from collections import deque
 import cv2
 
-import dqn_utils
+from dqn_utils import envs
 
 def make(game, size=84, grayscale=True, history_len=4):
     env = AtariEnv(game, frameskip=4, obs_type='image')
-    env = dqn_utils.envs.monitor(env, game)
+    env = envs.make.monitor(env, game)
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetWrapper(env)
     env = NoopResetWrapper(env)

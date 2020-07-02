@@ -2,7 +2,7 @@ import numpy as np
 
 
 class ReplayMemory:
-    def __init__(self, env, batch_size=32, capacity=500_000):
+    def __init__(self, env, batch_size=32, capacity=1_000_000):
         self.batch_size = batch_size
         self.capacity = capacity
         self.size_now = 0

@@ -8,24 +8,25 @@ from distutils.util import strtobool
 import time
 import math
 
-from dqn_utils import ReplayMemory, get_model_fn_by_name, envs
+import dqn_utils
 
 
 class DQNAgent:
-    def __init__(self, env, nsteps, mstraps, minibatches, **kwargs):
+    def __init__(self, env, nsteps, minibatches, **kwargs):
         self.env = env
         assert nsteps >= 1
         self.nsteps = nsteps
-        self.mstraps = mstraps  # Only used by BatchmodeDQNAgent
         assert minibatches >= 1
         self.minibatches = minibatches
         self.discount = kwargs['discount']
-        self.replay_memory = ReplayMemory(env)
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, epsilon=1e-8)
+        self.replay_memory = kwargs['rmem_constructor'](env)
+        self.optimizer = kwargs['optimizer']
+        self.scale_obs = kwargs['scale_obs']
+        self.update_freq = kwargs['update_freq']
 
         input_shape = env.observation_space.shape
         self.n_actions = env.action_space.n
-        model_fn = get_model_fn_by_name(kwargs['model_name'])
+        model_fn = kwargs['model_fn']
 
         def make_q_function():
             return tf.keras.models.Sequential([InputLayer(input_shape),
@@ -48,7 +49,7 @@ class DQNAgent:
         return self.replay_memory.sample(self.discount, self.nsteps)
 
     def _preprocess(self, observation):
-        return tf.cast(observation, tf.float32)
+        return self.scale_obs * tf.cast(observation, tf.float32)
 
     def _q_values(self, observation):
         return self.q_function(observation)
@@ -63,12 +64,11 @@ class DQNAgent:
         return tf.argmax(q_values, axis=1)[0]
 
     def update(self, t):
-        update_freq = 10_000
-        if (t % update_freq) == 0:
+        if (t % self.update_freq) == 0:
             self.copy_target_network()
 
         # Compute fractional training frequency
-        train_freq_frac, train_freq_int = math.modf(self.minibatches / update_freq)
+        train_freq_frac, train_freq_int = math.modf(self.minibatches / self.update_freq)
         # The integer portion tells us the minimum number of minibatches we do each timestep
         for _ in range(int(train_freq_int)):
             minibatch = self._sample()
@@ -107,8 +107,12 @@ class DQNAgent:
 
 
 class BatchmodeDQNAgent(DQNAgent):
+    def __init__(self, env, nsteps, minibatches, **kwargs):
+        super().__init__(env, nsteps, minibatches, **kwargs)
+        self.mstraps = kwargs['mstraps']
+
     def update(self, t):
-        if (t % 10_000) == 0:
+        if (t % self.update_freq) == 0:
             for _ in range(self.mstraps):
                 self.copy_target_network()
 
@@ -117,20 +121,14 @@ class BatchmodeDQNAgent(DQNAgent):
                     self._train(*minibatch)
 
 
-def epsilon_schedule(t, timeframe=300_000, min_epsilon=0.1):
-    return np.clip(1.0 - (1.0 - min_epsilon) * (t / timeframe), min_epsilon, 1.0)
-    # epsilon set constant at 0.1
-    # return 0.1
-
-
-def train(env, agent, timesteps, seed):
+def train(env, agent, prepopulate, epsilon_schedule, timesteps, seed):
     tf.random.set_seed(seed)
     np.random.seed(seed)
 
     observation = env.reset()
 
     print('timestep', 'episode', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
-    for t in range(-50_000, timesteps+1):  # Relative to training start
+    for t in range(-prepopulate, timesteps+1):  # Relative to training start
         epsilon = epsilon_schedule(t)
 
         if t == 0:
@@ -157,7 +155,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--nsteps', type=int, default=1,
                         help='(int) Number of rewards to use before bootstrapping. Default: 1')
     parser.add_argument('-m', '--mstraps', type=int, default=1,
-                        help='(int) Number of bootstrapping. Default: 1')
+                        help='(int) Number of target network updates per training epoch. Default: 1')
     parser.add_argument('-k', '--minibatches', type=int, default=2500,
                         help='(int) Number of minibatches per training epoch. Default: 2500')
     parser.add_argument('--timesteps', type=int, default=3_000_000,
@@ -166,10 +164,17 @@ if __name__ == '__main__':
                         help='(int) Seed for random number generation. Default: 0')
     args = parser.parse_args()
 
-    env = envs.make(args.env, args.seed)
+    env = dqn_utils.make_env(args.env, args.seed)
+    hparams = dqn_utils.get_hparams(args.env)
 
-    agent_cls = BatchmodeDQNAgent if (args.mstraps > 0) else DQNAgent
-    agent = agent_cls(env, args.nsteps, args.mstraps, args.minibatches, discount=0.99, model_name='cartpole_mlp')
+    if args.mstraps > 0:
+        agent_cls = BatchmodeDQNAgent
+        hparams['mstraps'] = args.mstraps
+    else:
+        agent_cls = DQNAgent
 
-    print(f'Training {type(agent).__name__} (n={agent.nsteps}, m={agent.mstraps}, k={agent.minibatches}) on {args.env} for {args.timesteps} timesteps with seed={args.seed}')
-    train(env, agent, args.timesteps, args.seed)
+    print(hparams)
+    agent = agent_cls(env, args.nsteps, args.minibatches, **hparams)
+
+    print(f'Training {type(agent).__name__} (n={args.nsteps}, m={args.mstraps}, k={args.minibatches}) on {args.env} for {args.timesteps} timesteps with seed={args.seed}')
+    train(env, agent, hparams['prepopulate'], hparams['epsilon_schedule'], args.timesteps, args.seed)

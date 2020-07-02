@@ -6,7 +6,7 @@ import os
 from dqn_utils.envs import atari_env
 
 
-def make(env_name, seed):
+def make_env(env_name, seed):
     if env_name in atari_env.ALL_GAMES:
         env = atari_env.make(env_name)
     else:
