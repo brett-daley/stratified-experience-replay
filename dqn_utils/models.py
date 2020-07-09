@@ -15,6 +15,16 @@ def atari_cnn():
             Dense(512, activation='relu')]
 
 
+def atari_cnn_5mux():
+    submodel_fn = lambda: Sequential(
+                    [Conv2D(32, kernel_size=8, strides=4, activation='relu'),
+                     Conv2D(64, kernel_size=4, strides=2, activation='relu'),
+                     Conv2D(64, kernel_size=3, strides=1, activation='relu'),
+                     Flatten(),
+                     Dense(83, activation='relu')])
+    return [Multiplexer(submodel_fn, n=5)]
+
+
 def cartpole_mlp():
     return [Dense(512, activation='tanh'),
             Dense(512, activation='tanh')]
