@@ -126,7 +126,7 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
 
     print('timestep', 'episode', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
     for t in range(-prepopulate, timesteps+1):  # Relative to training start
-        epsilon = epsilon_schedule(t)
+        epsilon = epsilon_schedule(t) if t >= 0 else 1.0
 
         if t == 0:
             start_time = time.time()
