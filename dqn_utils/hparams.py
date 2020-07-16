@@ -17,7 +17,7 @@ def atari_hparams():
         'discount': 0.99,
         'epsilon_schedule': schedules.ConstantSchedule(0.1),
         'model_fn': get_model_fn_by_name('atari_cnn'),
-        'optimizer': optimizers.Adam(learning_rate=3e-5, epsilon=1e-4),
+        'optimizer': optimizers.Adam(learning_rate=1e-4, epsilon=1e-4),
         'prepopulate': 250_000,
         'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=1_000_000),
         'scale_obs': 1.0 / 255.0,
