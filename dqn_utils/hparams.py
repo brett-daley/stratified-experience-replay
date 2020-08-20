@@ -16,7 +16,8 @@ def atari_hparams():
     return {
         'discount': 0.99,
         'epsilon_schedule': schedules.ConstantSchedule(0.1),
-        'model_fn': get_model_fn_by_name('atari_cnn'),
+        # 'model_fn': get_model_fn_by_name('atari_cnn'),
+        'model_fn': get_model_fn_by_name('atari_cnn_5mux'),
         'optimizer': optimizers.Adam(learning_rate=1e-4, epsilon=1e-4),
         'prepopulate': 250_000,
         'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=1_000_000),

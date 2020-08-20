@@ -7,6 +7,7 @@ os.environ['TF_DETERMINISTIC_OPS'] = '1'
 from distutils.util import strtobool
 import time
 import math
+import wandb
 
 import dqn_utils
 
@@ -136,6 +137,11 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
                 rewards = env.get_episode_rewards()
                 hours = (time.time() - start_time) / 3600
                 print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
+                wandb.log({'episode': len(rewards),
+                           'avg_return': np.mean(rewards[-100:]),
+                           'epsilon': epsilon,
+                           'hours': hours},
+                          step=t)
 
             agent.update(t)
 
@@ -164,6 +170,7 @@ if __name__ == '__main__':
     tf.random.set_seed(args.seed)
     np.random.seed(args.seed)
 
+    wandb.init(project="multiplexer", name="multiplexer epsilon")
     env = dqn_utils.make_env(args.env, args.seed)
     hparams = dqn_utils.get_hparams(args.env)
 
