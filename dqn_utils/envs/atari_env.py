@@ -23,7 +23,6 @@ def make(game, size=84, grayscale=True, history_len=4):
 def make_frozenlake(game):
     env = gym.make(game)
     env = envs.make.monitor(env, game)
-    env = ClippedRewardWrapper(env)
     env = FrozenLakeObsWrapper(env)
     return env
 

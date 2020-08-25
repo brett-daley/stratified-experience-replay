@@ -137,12 +137,12 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
                 rewards = env.get_episode_rewards()
                 hours = (time.time() - start_time) / 3600
                 print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
+
             wandb.log({'Epsilon': epsilon,
                        'Hours': hours,
                        'Episode': len(rewards),
                        'Average reward over last 100 episodes': np.mean(rewards[-100:])},
                       step=t)
-
             agent.update(t)
 
         action = agent.policy(observation, epsilon)
@@ -160,8 +160,11 @@ if __name__ == '__main__':
                         help='(str) Name of Atari game. Default: FrozenLake-v0')
     parser.add_argument('-n', '--nsteps', type=int, default=1,
                         help='(int) Number of rewards to use before bootstrapping. Default: 1')
-    parser.add_argument('-m', '--mstraps', type=int, default=1,
-                        help='(int) Number of target network updates per training epoch. Default: 1')
+    # Changed for ease while working on FrozenLake
+    # parser.add_argument('-m', '--mstraps', type=int, default=1,
+    #                     help='(int) Number of target network updates per training epoch. Default: 1')
+    parser.add_argument('-m', '--mstraps', type=int, default=0,
+                        help='(int) Number of target network updates per training epoch. Default: 0')
     parser.add_argument('-k', '--minibatches', type=int, default=2500,
                         help='(int) Number of minibatches per training epoch. Default: 2500')
     parser.add_argument('--timesteps', type=int, default=3_000_000,
