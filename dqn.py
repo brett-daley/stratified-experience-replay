@@ -7,6 +7,7 @@ os.environ['TF_DETERMINISTIC_OPS'] = '1'
 from distutils.util import strtobool
 import time
 import math
+import wandb
 
 import dqn_utils
 
@@ -136,6 +137,11 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
                 rewards = env.get_episode_rewards()
                 hours = (time.time() - start_time) / 3600
                 print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
+            wandb.log({'Epsilon': epsilon,
+                       'Hours': hours,
+                       'Episode': len(rewards),
+                       'Average reward over last 100 episodes': np.mean(rewards[-100:])},
+                      step=t)
 
             agent.update(t)
 
@@ -147,8 +153,11 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='pong',
-                        help='(str) Name of Atari game. Default: pong')
+    # Changed parser to use FrozenLake as default game
+    # parser.add_argument('--env', type=str, default='pong',
+    #                     help='(str) Name of Atari game. Default: pong')
+    parser.add_argument('--env', type=str, default='FrozenLake-v0',
+                        help='(str) Name of Atari game. Default: FrozenLake-v0')
     parser.add_argument('-n', '--nsteps', type=int, default=1,
                         help='(int) Number of rewards to use before bootstrapping. Default: 1')
     parser.add_argument('-m', '--mstraps', type=int, default=1,
@@ -164,6 +173,7 @@ if __name__ == '__main__':
     tf.random.set_seed(args.seed)
     np.random.seed(args.seed)
 
+    wandb.init(project="frozenlake", name="multilayer perceptron")
     env = dqn_utils.make_env(args.env, args.seed)
     hparams = dqn_utils.get_hparams(args.env)
 

@@ -19,6 +19,14 @@ def make(game, size=84, grayscale=True, history_len=4):
         env = HistoryWrapper(env, history_len)
     return env
 
+# How we implement the FrozenLakeObsWrapper from further below, in addition to other useful wrappers
+def make_frozenlake(game):
+    env = gym.make(game)
+    env = envs.make.monitor(env, game)
+    env = ClippedRewardWrapper(env)
+    env = FrozenLakeObsWrapper(env)
+    return env
+
 class ClippedRewardWrapper(gym.RewardWrapper):
     '''Clips rewards to be in {-1, 0, +1} based on their signs.'''
     def reward(self, reward):
@@ -118,6 +126,35 @@ class PreprocessedImageWrapper(gym.ObservationWrapper):
             observation = cv2.cvtColor(observation, cv2.COLOR_BGR2GRAY)
         observation = cv2.resize(observation, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
         return observation.reshape(self.shape).astype(np.uint8)
+
+class FrozenLakeObsWrapper(gym.ObservationWrapper):
+    '''Converts FrozenLake observation (an integer) to a  normalized coordinate in [0.,0.] - [1.,1.]'''
+    def __init__(self, env, size=(2,)):
+        super().__init__(env)
+        self.size = size
+        self.observation_space = gym.spaces.Box(low=0, high=1, shape=size, dtype=np.uint8)
+
+    def observation(self, observation):
+        row_range = self.env.desc.shape[0]
+        col_range = self.env.desc.shape[1]
+
+        row_coordinate = observation // row_range
+        col_coordinate = observation % col_range
+
+        normalized_row_coord = row_coordinate / row_range
+        normalized_col_coord = col_coordinate / col_range
+
+        normed_coordinate = np.empty(shape=self.size)
+        normed_coordinate[0] = normalized_col_coord
+        normed_coordinate[1] = normalized_row_coord
+        normed_coordinate.astype(np.uint8)
+
+        # Rough check to ensure coordinate was indeed normalized
+        assert np.linalg.norm(normed_coordinate) < 1.42, "Check norming; norm is greater than that of [[1],[1]] matrix"
+
+        return normed_coordinate
+
+
 
 
 ALL_GAMES = (

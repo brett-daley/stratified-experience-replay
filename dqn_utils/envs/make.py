@@ -10,8 +10,12 @@ def make_env(env_name, seed):
     if env_name in atari_env.ALL_GAMES:
         env = atari_env.make(env_name)
     else:
-        env = gym.make(env_name)
-        env = monitor(env, env_name)
+        # Added to accommodate FrozenLake (which is not an ALE game)
+        if env_name == 'FrozenLake-v0':
+            env = atari_env.make_frozenlake(env_name)
+        else:
+            env = gym.make(env_name)
+            env = monitor(env, env_name)
     env.seed(seed)
     env.action_space.seed(seed)
     return env

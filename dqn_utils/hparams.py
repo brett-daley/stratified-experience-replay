@@ -9,6 +9,8 @@ from dqn_utils import schedules
 def get_hparams(env_name):
     if env_name in atari_env.ALL_GAMES:
         return atari_hparams()
+    if env_name == 'FrozenLake-v0':
+        return frozenlake_hparams()
     return other_hparams()
 
 
@@ -21,6 +23,19 @@ def atari_hparams():
         'prepopulate': 250_000,
         'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=1_000_000),
         'scale_obs': 1.0 / 255.0,
+        'update_freq': 10_000,
+    }
+
+
+def frozenlake_hparams():
+    return {
+        'discount': 0.99,
+        'epsilon_schedule': schedules.ConstantSchedule(0.1),
+        'model_fn': get_model_fn_by_name('cartpole_mlp'),
+        'optimizer': optimizers.Adam(learning_rate=1e-4, epsilon=1e-4),
+        'prepopulate': 250_000,
+        'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=1_000_000),
+        'scale_obs': 1.0,
         'update_freq': 10_000,
     }
 
