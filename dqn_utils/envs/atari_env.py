@@ -21,7 +21,7 @@ def make(game, size=84, grayscale=True, history_len=4):
 
 # How we implement the FrozenLakeObsWrapper from further below, in addition to other useful wrappers
 def make_frozenlake(game):
-    env = gym.make(game)
+    env = gym.make(game, is_slippery=True)
     env = envs.make.monitor(env, game)
     env = FrozenLakeObsWrapper(env)
     return env
@@ -127,11 +127,13 @@ class PreprocessedImageWrapper(gym.ObservationWrapper):
         return observation.reshape(self.shape).astype(np.uint8)
 
 class FrozenLakeObsWrapper(gym.ObservationWrapper):
-    '''Converts FrozenLake observation (an integer) to a  normalized coordinate in [0.,0.] - [1.,1.]'''
+    '''Converts FrozenLake observation (an integer) to a  normalized coordinate in [0.,0.] - [1.,1.]
+    For example, position 14 corresponds to position [x,y] = [2,3] (in the 3rd column and 4th row of the grid),
+    which normalizes to [0.66666667, 1.]'''
     def __init__(self, env, size=(2,)):
         super().__init__(env)
         self.size = size
-        self.observation_space = gym.spaces.Box(low=0, high=1, shape=size, dtype=np.uint8)
+        self.observation_space = gym.spaces.Box(low=0, high=1, shape=size, dtype=np.float32)
 
     def observation(self, observation):
         row_range = self.env.desc.shape[0]
@@ -140,13 +142,13 @@ class FrozenLakeObsWrapper(gym.ObservationWrapper):
         row_coordinate = observation // row_range
         col_coordinate = observation % col_range
 
-        normalized_row_coord = row_coordinate / row_range
-        normalized_col_coord = col_coordinate / col_range
+        normalized_row_coord = row_coordinate / (row_range - 1)
+        normalized_col_coord = col_coordinate / (col_range - 1)
 
         normed_coordinate = np.empty(shape=self.size)
         normed_coordinate[0] = normalized_col_coord
         normed_coordinate[1] = normalized_row_coord
-        normed_coordinate.astype(np.uint8)
+        normed_coordinate = normed_coordinate.astype(np.float32)
 
         # Rough check to ensure coordinate was indeed normalized
         assert np.linalg.norm(normed_coordinate) < 1.42, "Check norming; norm is greater than that of [[1],[1]] matrix"
