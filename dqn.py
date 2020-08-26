@@ -179,7 +179,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0,
                         help='(int) Seed for random number generation. Default: 0')
     parser.add_argument('--is_picky', type=bool, default=True,
-                        help='(bool) Whether to use picky replay memory or not. Default: False')
+                        help='(bool) Whether to use picky replay memory or not. Default: Trueg')
     args = parser.parse_args()
 
     tf.random.set_seed(args.seed)
