@@ -7,7 +7,7 @@ os.environ['TF_DETERMINISTIC_OPS'] = '1'
 from distutils.util import strtobool
 import time
 import math
-import wandb
+# import wandb
 
 import dqn_utils
 
@@ -137,18 +137,25 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
                 rewards = env.get_episode_rewards()
                 hours = (time.time() - start_time) / 3600
                 print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
+                print(f'Replay Memory size: {agent.replay_memory.size_now}')
 
-            wandb.log({'Epsilon': epsilon,
-                       'Hours': hours,
-                       'Episode': len(rewards),
-                       'Average reward over last 100 episodes': np.mean(rewards[-100:])},
-                      step=t)
+            # wandb.log({'Epsilon': epsilon,
+            #            'Hours': hours,
+            #            'Episode': len(rewards),
+            #            'Average reward over last 100 episodes': np.mean(rewards[-100:])},
+            #           step=t)
             agent.update(t)
 
         action = agent.policy(observation, epsilon)
         new_observation, reward, done, _ = env.step(action)
-        agent.save(observation, action, reward, done)
-        observation = env.reset() if done else new_observation
+
+        if agent.replay_memory.is_using_picky_memory:
+            new_observation = env.reset() if done else new_observation
+            agent.save(observation, action, reward, done, new_observation)
+            observation = new_observation
+        else:
+            agent.save(observation, action, reward, done)
+            observation = env.reset() if done else new_observation
 
 
 if __name__ == '__main__':
@@ -171,14 +178,16 @@ if __name__ == '__main__':
                         help='(int) Training duration. Default: 3_000_000')
     parser.add_argument('--seed', type=int, default=0,
                         help='(int) Seed for random number generation. Default: 0')
+    parser.add_argument('--is_picky', type=bool, default=True,
+                        help='(bool) Whether to use picky replay memory or not. Default: False')
     args = parser.parse_args()
 
     tf.random.set_seed(args.seed)
     np.random.seed(args.seed)
 
-    wandb.init(project="frozenlake", name="multilayer perceptron")
+    # wandb.init(project="frozenlake", name="picky rmem")
     env = dqn_utils.make_env(args.env, args.seed)
-    hparams = dqn_utils.get_hparams(args.env)
+    hparams = dqn_utils.get_hparams(args.env, args.is_picky)
 
     if args.mstraps > 0:
         agent_cls = BatchmodeDQNAgent
