@@ -7,7 +7,7 @@ os.environ['TF_DETERMINISTIC_OPS'] = '1'
 from distutils.util import strtobool
 import time
 import math
-# import wandb
+import wandb
 
 import dqn_utils
 
@@ -139,11 +139,11 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
                 print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
                 print(f'Replay Memory size: {agent.replay_memory.size_now}')
 
-            # wandb.log({'Epsilon': epsilon,
-            #            'Hours': hours,
-            #            'Episode': len(rewards),
-            #            'Average reward over last 100 episodes': np.mean(rewards[-100:])},
-            #           step=t)
+            wandb.log({'Epsilon': epsilon,
+                       'Hours': hours,
+                       'Episode': len(rewards),
+                       'Average reward over last 100 episodes': np.mean(rewards[-100:])},
+                      step=t)
             agent.update(t)
 
         action = agent.policy(observation, epsilon)
@@ -179,13 +179,13 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0,
                         help='(int) Seed for random number generation. Default: 0')
     parser.add_argument('--is_picky', type=bool, default=True,
-                        help='(bool) Whether to use picky replay memory or not. Default: Trueg')
+                        help='(bool) Whether to use picky replay memory or not. Default: True')
     args = parser.parse_args()
 
     tf.random.set_seed(args.seed)
     np.random.seed(args.seed)
 
-    # wandb.init(project="frozenlake", name="picky rmem")
+    wandb.init(project="frozenlake", name="picky rmem")
     env = dqn_utils.make_env(args.env, args.seed)
     hparams = dqn_utils.get_hparams(args.env, args.is_picky)
 

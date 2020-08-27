@@ -36,7 +36,8 @@ def atari_hparams():
 def frozenlake_hparams():
     return {
         'discount': 0.99,
-        'epsilon_schedule': schedules.ConstantSchedule(0.05),
+        # 'epsilon_schedule': schedules.ConstantSchedule(0.05),
+        'epsilon_schedule': schedules.LinearAnnealSchedule(start_value=1.0, end_value=0.1, timeframe=600_000),
         'model_fn': get_model_fn_by_name('frozenlake_mlp'),
         'optimizer': optimizers.Adam(learning_rate=1e-4, epsilon=1e-4),
         'prepopulate': 50_000,
@@ -49,7 +50,8 @@ def frozenlake_hparams():
 def picky_frozenlake_hparams():
     return {
         'discount': 0.99,
-        'epsilon_schedule': schedules.ConstantSchedule(0.05),
+        # 'epsilon_schedule': schedules.ConstantSchedule(0.05),
+        'epsilon_schedule': schedules.LinearAnnealSchedule(start_value=1.0, end_value=0.1, timeframe=600_000),
         'model_fn': get_model_fn_by_name('frozenlake_mlp'),
         'optimizer': optimizers.Adam(learning_rate=1e-4, epsilon=1e-4),
         'prepopulate': 50_000,

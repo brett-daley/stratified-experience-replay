@@ -18,6 +18,7 @@ class PickyReplayMemory:
         tuple_new_observation = tuple(new_observation)
 
         transition = (tuple_observation, action, reward, done, tuple_new_observation)
+
         self.transitions.add(transition)
         self.size_now = len(self.transitions)
 
