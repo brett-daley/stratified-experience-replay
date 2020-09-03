@@ -8,6 +8,7 @@ from distutils.util import strtobool
 import time
 import math
 import wandb
+import random
 
 import dqn_utils
 
@@ -142,7 +143,7 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
             wandb.log({'Epsilon': epsilon,
                        'Hours': hours,
                        'Episode': len(rewards),
-                       'Average reward over last 100 episodes': np.mean(rewards[-100:])},
+                       'Average reward over last 1000 episodes': np.mean(rewards[-1000:])},
                       step=t)
             agent.update(t)
 
@@ -178,12 +179,13 @@ if __name__ == '__main__':
                         help='(int) Training duration. Default: 3_000_000')
     parser.add_argument('--seed', type=int, default=0,
                         help='(int) Seed for random number generation. Default: 0')
-    parser.add_argument('--is_picky', type=bool, default=True,
+    parser.add_argument('--is_picky', type=strtobool, default=True,
                         help='(bool) Whether to use picky replay memory or not. Default: True')
     args = parser.parse_args()
 
     tf.random.set_seed(args.seed)
     np.random.seed(args.seed)
+    random.seed(args.seed)
 
     wandb.init(project="frozenlake", name="picky rmem")
     env = dqn_utils.make_env(args.env, args.seed)
