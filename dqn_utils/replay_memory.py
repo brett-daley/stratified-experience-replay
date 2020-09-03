@@ -62,7 +62,6 @@ class PickyReplayMemory:
             i = random.choice(index_list)
             indices.append(i)
         i = np.asarray(indices)
-        i = (self.pointer + i) % self.size_now
 
         # Get the transitions
         observations = self.observations[i]
