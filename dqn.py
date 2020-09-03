@@ -140,11 +140,12 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
                 print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
                 print(f'Replay Memory size: {agent.replay_memory.size_now}')
 
-            wandb.log({'Epsilon': epsilon,
-                       'Hours': hours,
-                       'Episode': len(rewards),
-                       'Average reward over last 1000 episodes': np.mean(rewards[-1000:])},
-                      step=t)
+                wandb.log({'Epsilon': epsilon,
+                        'Hours': hours,
+                        'Episode': len(rewards),
+                        'Average reward over last 1000 episodes': np.mean(rewards[-1000:])},
+                        step=t)
+
             agent.update(t)
 
         action = agent.policy(observation, epsilon)
