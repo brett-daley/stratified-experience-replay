@@ -1,5 +1,6 @@
 import numpy as np
 import random
+from collections import deque
 
 from dqn_utils.random_dict import RandomDict
 
@@ -19,7 +20,7 @@ class PickyReplayMemory:
         self.rewards = np.empty(capacity, dtype=np.float32)
         self.dones = np.empty(capacity, dtype=np.float32)
 
-        self.pair_to_index_dict = RandomDict()
+        self.pair_to_indices_dict = RandomDict()
 
     def save(self, observation, action, reward, done, new_observation):
         p = self.pointer
@@ -27,21 +28,19 @@ class PickyReplayMemory:
         # If we're full, we need to delete the oldest entry first
         if self._is_full():
             old_pair = make_pair(self.observations[p], self.actions[p])
-            old_index_list = self.pair_to_index_dict[old_pair]
-            old_index_list.pop(0)
-            if not old_index_list:
-                del self.pair_to_index_dict[old_pair]
+            old_index_deque = self.pair_to_indices_dict[old_pair]
+            old_index_deque.popleft()
+            if not old_index_deque:
+                self.pair_to_indices_dict.pop(old_pair)
 
         # Save the transition
         self.observations[p], self.actions[p], self.rewards[p], self.dones[p] = observation, action, reward, done
 
         # Update the index for the new entry
         new_pair = make_pair(observation, action)
-        if new_pair not in self.pair_to_index_dict:
-            # TODO: We might want to use a deque instead of a list
-            self.pair_to_index_dict[new_pair] = []
-        index_list = self.pair_to_index_dict[new_pair]
-        index_list.append(p)
+        if new_pair not in self.pair_to_indices_dict:
+            self.pair_to_indices_dict[new_pair] = deque()
+        self.pair_to_indices_dict[new_pair].append(p)
 
         # Increment size and pointer
         self.size_now = min(self.size_now + 1, self.capacity)
@@ -56,11 +55,10 @@ class PickyReplayMemory:
             # TODO: Can we generalize this to n-step returns?
 
         # Sample indices for the minibatch
-        indices = []
-        for _ in range(self.batch_size):
-            index_list = self.pair_to_index_dict.random_value()
-            i = random.choice(index_list)
-            indices.append(i)
+        indices = np.empty(self.batch_size, dtype=np.int64)
+        for j in range(self.batch_size):
+            index_deque = self.pair_to_indices_dict.random_value()
+            indices[j] = random.choice(index_deque)
         i = np.asarray(indices)
 
         # Get the transitions
