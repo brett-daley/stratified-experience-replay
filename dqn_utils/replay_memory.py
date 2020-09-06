@@ -55,11 +55,7 @@ class PickyReplayMemory:
             # TODO: Can we generalize this to n-step returns?
 
         # Sample indices for the minibatch
-        indices = np.empty(self.batch_size, dtype=np.int64)
-        for j in range(self.batch_size):
-            index_deque = self.pair_to_indices_dict.random_value()
-            indices[j] = random.choice(index_deque)
-        i = np.asarray(indices)
+        i = np.asarray([self._sample_index(nsteps) for _ in range(self.batch_size)])
 
         # Get the transitions
         observations = self.observations[i]
@@ -69,6 +65,15 @@ class PickyReplayMemory:
         bootstrap_observations = self.observations[(i + nsteps) % self.size_now]
 
         return observations, actions, rewards, done_mask, bootstrap_observations
+
+    def _sample_index(self, nsteps):
+        index_deque = self.pair_to_indices_dict.random_value()
+        x = random.choice(index_deque)
+        # Make sure the sampled index has room to bootstrap
+        if (x - self.pointer) % self.size_now >= self.capacity - nsteps:
+            # It's too close to the pointer; recurse and try again
+            return self._sample_index(nsteps)
+        return x
 
 
 def make_pair(observation, action):
