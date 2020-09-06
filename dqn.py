@@ -190,13 +190,20 @@ if __name__ == '__main__':
 
     wandb.init(project="frozenlake", name="picky rmem")
     env = dqn_utils.make_env(args.env, args.seed)
-    hparams = dqn_utils.get_hparams(args.env, args.is_picky)
+    hparams = dqn_utils.get_hparams(args.env)
 
     if args.mstraps > 0:
         agent_cls = BatchmodeDQNAgent
         hparams['mstraps'] = args.mstraps
     else:
         agent_cls = DQNAgent
+
+    if args.is_picky:
+        # Intercept the standard replay memory constructor and replace it
+        print("Using picky replay memory")
+        from dqn_utils.replay_memory import PickyReplayMemory
+        rmem = hparams['rmem_constructor'](env)
+        hparams['rmem_constructor'] = lambda e: PickyReplayMemory(e, batch_size=rmem.batch_size, capacity=rmem.capacity)
 
     print(hparams)
     agent = agent_cls(env, args.nsteps, args.minibatches, **hparams)

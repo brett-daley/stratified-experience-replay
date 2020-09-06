@@ -2,21 +2,15 @@ from tensorflow.keras import optimizers
 
 from dqn_utils.envs import atari_env
 from dqn_utils.models import get_model_fn_by_name
-from dqn_utils.replay_memory import ReplayMemory, PickyReplayMemory
+from dqn_utils.replay_memory import ReplayMemory
 from dqn_utils import schedules
 
 
-def get_hparams(env_name, is_picky):
+def get_hparams(env_name):
     if env_name in atari_env.ALL_GAMES:
-        print("Using Regular Replay Memory")
         return atari_hparams()
     if env_name == 'FrozenLake-v0':
-        if not is_picky:
-            print("Using Regular Replay Memory")
-            return frozenlake_hparams()
-        if is_picky:
-            print("Using Picky Replay Memory")
-            return picky_frozenlake_hparams()
+        return frozenlake_hparams()
     return other_hparams()
 
 
@@ -42,20 +36,6 @@ def frozenlake_hparams():
         'optimizer': optimizers.Adam(learning_rate=1e-4, epsilon=1e-4),
         'prepopulate': 50_000,
         'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=500_000),
-        'scale_obs': 1.0,
-        'update_freq': 10_000,
-    }
-
-
-def picky_frozenlake_hparams():
-    return {
-        'discount': 0.99,
-        # 'epsilon_schedule': schedules.ConstantSchedule(0.05),
-        'epsilon_schedule': schedules.LinearAnnealSchedule(start_value=1.0, end_value=0.1, timeframe=600_000),
-        'model_fn': get_model_fn_by_name('frozenlake_mlp'),
-        'optimizer': optimizers.Adam(learning_rate=1e-4, epsilon=1e-4),
-        'prepopulate': 50_000,
-        'rmem_constructor': lambda env: PickyReplayMemory(env, batch_size=32),
         'scale_obs': 1.0,
         'update_freq': 10_000,
     }
