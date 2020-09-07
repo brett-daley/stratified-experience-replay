@@ -89,18 +89,28 @@ class DQNAgent:
 
         target_q_values = self._target_q_values(bootstrap_observations)
         nstep_discount = pow(self.discount, self.nsteps)
-        bootstraps = nstep_discount * tf.reduce_max(target_q_values, axis=1)
 
         with tf.GradientTape() as tape:
             q_values = self._q_values(observations)
-            action_mask = tf.one_hot(actions, depth=self.n_actions)
-            q_values = tf.reduce_sum(action_mask * q_values, axis=1)
+            onpolicy_q_values = self._select(q_values, actions)
 
-            returns = nstep_rewards + (done_mask * bootstraps)
-            loss = tf.reduce_mean(tf.square(returns - q_values))
+            # SINGLE DQN
+            bootstraps = tf.reduce_max(target_q_values, axis=1)
+
+            # DOUBLE DQN
+            # argmax = tf.argmax(q_values, axis=1)
+            # bootstraps = self._select(target_q_values, argmax)
+
+            bootstraps = tf.stop_gradient(bootstraps)
+            returns = nstep_rewards + (done_mask * nstep_discount * bootstraps)
+            loss = tf.reduce_mean(tf.square(returns - onpolicy_q_values))
 
         gradients = tape.gradient(loss, self.q_function.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.q_function.trainable_variables))
+
+    def _select(self, q_values, actions):
+        mask = tf.one_hot(actions, depth=self.n_actions)
+        return tf.reduce_sum(mask * q_values, axis=1)
 
     @tf.function
     def copy_target_network(self):
