@@ -153,6 +153,7 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
                 wandb.log({'Epsilon': epsilon,
                         'Hours': hours,
                         'Episode': len(rewards),
+                        'Average reward over last 100 episodes': np.mean(rewards[-100:]),
                         'Average reward over last 1000 episodes': np.mean(rewards[-1000:])},
                         step=t)
 
