@@ -25,6 +25,8 @@ class PickyReplayMemory:
     def save(self, observation, action, reward, done, new_observation):
         p = self.pointer
 
+        # self._update_histogram_data()
+
         # If we're full, we need to delete the oldest entry first
         if self._is_full():
             old_pair = make_pair(self.observations[p], self.actions[p])
@@ -74,6 +76,23 @@ class PickyReplayMemory:
             # It's too close to the pointer; recurse and try again
             return self._sample_index(nsteps)
         return x
+
+    def _update_histogram_data(self):
+        if not self._is_full():
+            if not hasattr(self, '_n_unique_over_time'):
+                self._n_unique_over_time = []
+            self._n_unique_over_time.append( len(self.pair_to_indices_dict.values) )
+
+        if self._is_full():
+            # Save data for unique vs time
+            np.savetxt('n_unique_over_time.txt', self._n_unique_over_time, fmt='%d')
+
+            # Save data for histogram
+            count_list = []
+            for _, index_deque in self.pair_to_indices_dict.values:
+                count_list.append( len(index_deque) )
+            np.savetxt('unique_frequency.txt', count_list, fmt='%d')
+            import sys; sys.exit()
 
 
 def make_pair(observation, action):
