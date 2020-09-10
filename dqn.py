@@ -161,14 +161,10 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
 
         action = agent.policy(observation, epsilon)
         new_observation, reward, done, _ = env.step(action)
-
-        if agent.replay_memory.is_using_picky_memory:
-            new_observation = env.reset() if done else new_observation
-            agent.save(observation, action, reward, done, new_observation)
-            observation = new_observation
-        else:
-            agent.save(observation, action, reward, done)
-            observation = env.reset() if done else new_observation
+        if done:
+            new_observation = env.reset()
+        agent.save(observation, action, reward, done, new_observation)
+        observation = new_observation
 
 
 if __name__ == '__main__':
@@ -191,8 +187,8 @@ if __name__ == '__main__':
                         help='(int) Training duration. Default: 3_000_000')
     parser.add_argument('--seed', type=int, default=0,
                         help='(int) Seed for random number generation. Default: 0')
-    parser.add_argument('--is_picky', type=strtobool, default=True,
-                        help='(bool) Whether to use picky replay memory or not. Default: True')
+    parser.add_argument('--rmem_type', type=str, default='StratifiedReplayMemory',
+                        help='(str) Name of replay memory class. Default: StratifiedReplayMemory')
     args = parser.parse_args()
 
     tf.random.set_seed(args.seed)
@@ -209,12 +205,12 @@ if __name__ == '__main__':
     else:
         agent_cls = DQNAgent
 
-    if args.is_picky:
+    print('Using', args.rmem_type)
+    if args.rmem_type != 'ReplayMemory':
         # Intercept the standard replay memory constructor and replace it
-        print("Using picky replay memory")
-        from dqn_utils.replay_memory import PickyReplayMemory
+        rmem_cls = getattr(dqn_utils.replay_memory, args.rmem_type)
         rmem = hparams['rmem_constructor'](env)
-        hparams['rmem_constructor'] = lambda e: PickyReplayMemory(e, batch_size=rmem.batch_size, capacity=rmem.capacity)
+        hparams['rmem_constructor'] = lambda e: rmem_cls(e, batch_size=rmem.batch_size, capacity=rmem.capacity)
 
     print(hparams)
     agent = agent_cls(env, args.nsteps, args.minibatches, **hparams)

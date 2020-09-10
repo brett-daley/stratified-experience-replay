@@ -5,10 +5,8 @@ from collections import deque
 from dqn_utils.random_dict import RandomDict
 
 
-class PickyReplayMemory:
+class StratifiedReplayMemory:
     def __init__(self, env, batch_size=32, capacity=1_000_000):
-        self.is_using_picky_memory = True
-
         self.batch_size = batch_size
         self.capacity = capacity
         self.size_now = 0
@@ -53,7 +51,7 @@ class PickyReplayMemory:
 
     def sample(self, discount, nsteps):
         if nsteps != 1:
-            raise NotImplementedError('PickyReplayMemory supports only 1-step returns')
+            raise NotImplementedError('StratifiedReplayMemory supports only 1-step returns')
             # TODO: Can we generalize this to n-step returns?
 
         # Sample indices for the minibatch
@@ -101,7 +99,6 @@ def make_pair(observation, action):
 
 class ReplayMemory:
     def __init__(self, env, batch_size=32, capacity=1_000_000):
-        self.is_using_picky_memory = False
         self.batch_size = batch_size
         self.capacity = capacity
         self.size_now = 0
@@ -113,7 +110,7 @@ class ReplayMemory:
         self.rewards = np.empty(capacity, dtype=np.float32)
         self.dones = np.empty(capacity, dtype=np.float32)
 
-    def save(self, observation, action, reward, done):
+    def save(self, observation, action, reward, done, new_observation):
         p = self.pointer
         self.observations[p], self.actions[p], self.rewards[p], self.dones[p] = observation, action, reward, done
         self.size_now = min(self.size_now + 1, self.capacity)
