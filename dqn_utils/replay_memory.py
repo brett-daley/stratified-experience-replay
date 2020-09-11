@@ -2,6 +2,7 @@ import numpy as np
 import random
 from collections import deque
 
+from dqn_utils.prioritization import PrioritizedReplayBuffer
 from dqn_utils.random_dict import RandomDict
 
 
@@ -27,7 +28,7 @@ class ReplayMemory:
     def _is_full(self):
         return self.size_now == self.capacity
 
-    def sample(self, discount, nsteps):
+    def sample(self, discount, nsteps, train_frac):
         # Sample indices for the minibatch
         i = np.asarray([self._sample_index(nsteps) for _ in range(self.batch_size)])
 
@@ -46,7 +47,8 @@ class ReplayMemory:
                 nstep_rewards += done_mask * pow(discount, k) * self.rewards[x]
                 done_mask *= (1.0 - self.dones[x])
 
-        return observations, actions, nstep_rewards, done_mask, bootstrap_observations
+        weights = np.ones_like(nstep_rewards)
+        return (observations, actions, nstep_rewards, done_mask, bootstrap_observations, weights), i
 
     def _sample_index(self, nsteps):
         x = np.random.randint(self.size_now - nsteps)
@@ -80,11 +82,11 @@ class StratifiedReplayMemory(ReplayMemory):
         # Save the transition
         super().save(observation, action, reward, done, new_observation)
 
-    def sample(self, discount, nsteps):
+    def sample(self, discount, nsteps, train_frac):
         if nsteps != 1:
             raise NotImplementedError('StratifiedReplayMemory supports only 1-step returns')
             # TODO: Can we generalize this to n-step returns?
-        return super().sample(discount, nsteps)
+        return super().sample(discount, nsteps, train_frac)
 
     def _sample_index(self, nsteps):
         index_deque = self.pair_to_indices_dict.random_value()
@@ -111,6 +113,42 @@ class StratifiedReplayMemory(ReplayMemory):
                 count_list.append( len(index_deque) )
             np.savetxt('unique_frequency.txt', count_list, fmt='%d')
             import sys; sys.exit()
+
+
+class PrioritizedReplayMemory(ReplayMemory):
+    def __init__(self, env, batch_size=32, capacity=1_000_000):
+        # Just hardcode the prioritization hyperparameters here
+        # These are the default from the original paper, and OpenAI uses them too
+        self.alpha = 0.6
+        self.beta_schedule = lambda train_frac: 0.4 + 0.6 * train_frac
+        self.epsilon = 1e-6
+
+        # Now make the buffer
+        self.buffer = PrioritizedReplayBuffer(capacity, self.alpha)
+        self.batch_size = batch_size
+        self.capacity = capacity
+
+    def save(self, observation, action, reward, done, new_observation):
+        # Note that the argument order changes! This is intentional.
+        self.buffer.add(observation, action, reward, new_observation, done)
+
+    def sample(self, discount, nsteps, train_frac):
+        if nsteps != 1:
+            raise NotImplementedError('PrioritizedReplayMemory supports only 1-step returns')
+
+        beta = self.beta_schedule(train_frac)
+        observations, actions, rewards, next_observations,\
+            done_mask, weights, indices = self.buffer.sample(self.batch_size, beta)
+
+        rewards = rewards.astype(np.float32)
+        done_mask = done_mask.astype(np.float32)
+        weights = weights.astype(np.float32)
+
+        return (observations, actions, rewards, done_mask, next_observations, weights), indices
+
+    def update_td_errors(self, indices, td_errors):
+        new_priorities = np.abs(td_errors) + self.epsilon
+        self.buffer.update_priorities(indices, new_priorities)
 
 
 def make_pair(observation, action):

@@ -25,6 +25,7 @@ class DQNAgent:
         self.optimizer = kwargs['optimizer']
         self.scale_obs = kwargs['scale_obs']
         self.update_freq = kwargs['update_freq']
+        self.hparams = kwargs
 
         input_shape = env.observation_space.shape
         self.n_actions = env.action_space.n
@@ -47,8 +48,9 @@ class DQNAgent:
     def save(self, *transition):
         self.replay_memory.save(*transition)
 
-    def _sample(self):
-        return self.replay_memory.sample(self.discount, self.nsteps)
+    def _sample(self, t):
+        train_frac = t / self.hparams['timesteps']
+        return self.replay_memory.sample(self.discount, self.nsteps, train_frac)
 
     def _preprocess(self, observation):
         return self.scale_obs * tf.cast(observation, tf.float32)
@@ -73,17 +75,23 @@ class DQNAgent:
         train_freq_frac, train_freq_int = math.modf(self.minibatches / self.update_freq)
         # The integer portion tells us the minimum number of minibatches we do each timestep
         for _ in range(int(train_freq_int)):
-            minibatch = self._sample()
-            self._train(*minibatch)
+            self._do_minibatch(t)
         # The fractional portion tells us how often to add an extra minibatch
         if train_freq_frac != 0.0:
             extra_train_freq = round(1.0 / train_freq_frac)
             if (t % extra_train_freq) == 0:
-                minibatch = self._sample()
-                self._train(*minibatch)
+                self._do_minibatch(t)
+
+    def _do_minibatch(self, t):
+        minibatch, indices = self._sample(t)
+        td_errors = self._train(*minibatch)
+        try:
+            self.replay_memory.update_td_errors(indices, td_errors)
+        except AttributeError:
+            pass  # We're not using prioritization
 
     @tf.function
-    def _train(self, observations, actions, nstep_rewards, done_mask, bootstrap_observations):
+    def _train(self, observations, actions, nstep_rewards, done_mask, bootstrap_observations, weights):
         observations = self._preprocess(observations)
         bootstrap_observations = self._preprocess(bootstrap_observations)
 
@@ -103,10 +111,13 @@ class DQNAgent:
 
             bootstraps = tf.stop_gradient(bootstraps)
             returns = nstep_rewards + (done_mask * nstep_discount * bootstraps)
-            loss = tf.reduce_mean(tf.square(returns - onpolicy_q_values))
+            td_errors = returns - onpolicy_q_values
+            loss = tf.reduce_mean(weights * tf.square(td_errors))
 
         gradients = tape.gradient(loss, self.q_function.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.q_function.trainable_variables))
+
+        return td_errors
 
     def _select(self, q_values, actions):
         mask = tf.one_hot(actions, depth=self.n_actions)
@@ -129,8 +140,7 @@ class BatchmodeDQNAgent(DQNAgent):
                 self.copy_target_network()
 
                 for _ in range(self.minibatches // self.nsteps):
-                    minibatch = self._sample()
-                    self._train(*minibatch)
+                    self._do_minibatch(t)
 
 
 def train(env, agent, prepopulate, epsilon_schedule, timesteps):
@@ -148,7 +158,6 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
                 rewards = env.get_episode_rewards()
                 hours = (time.time() - start_time) / 3600
                 print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
-                print(f'Replay Memory size: {agent.replay_memory.size_now}')
 
                 wandb.log({'Epsilon': epsilon,
                         'Hours': hours,
@@ -198,6 +207,7 @@ if __name__ == '__main__':
     wandb.init(project="frozenlake", name="picky rmem")
     env = dqn_utils.make_env(args.env, args.seed)
     hparams = dqn_utils.get_hparams(args.env)
+    hparams['timesteps'] = args.timesteps
 
     if args.mstraps > 0:
         agent_cls = BatchmodeDQNAgent
