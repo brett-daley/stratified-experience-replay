@@ -29,9 +29,6 @@ def cartpole_mlp():
     return [Dense(512, activation='tanh'),
             Dense(512, activation='tanh')]
 
-def frozenlake_mlp():
-    return [Dense(512, activation='tanh'),
-            Dense(512, activation='tanh')]
 
 def cartpole_mlp_2mux():
     submodel_fn = lambda: Sequential([Dense(361, activation='tanh') for _ in range(2)])
