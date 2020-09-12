@@ -55,17 +55,13 @@ class FrozenLakeObsWrapper(gym.ObservationWrapper):
 
 class TaxiObsWrapper(gym.ObservationWrapper):
     '''Converts Taxi-v3 observation (an int up to 500) into a normalized 7-element vector:
-    [taxi_x, taxi_y, passenger_pickup_x, passenger_pickup_y, destination_x, destination_y, passenger_in_car]
+    [taxi_x, taxi_y, passenger_loc_x, passenger_loc_y, destination_x, destination_y, passenger_in_car]
     where passenger_in_car = 0 if the passenger IS NOT in the taxi, and passenger_in_car = 1 if pass. IS in the taxi.
-    NOTE: passnger_pickup_x and passnger_pickup_y correspond only to the pickup location, and do not change if the
-    passenger is in the taxi. Of course, they do update if the passenger is dropped off at a new spot,
-    since that is the new pickup location.'''
-    def __init__(self, env, size=(7,)):
+    Passenger location is continuously updated when passenger_in_car==1.'''
+    def __init__(self, env):
         super().__init__(env)
-        self.size = size
-        self.observation_space = gym.spaces.Box(low=0, high=1, shape=size, dtype=np.float32)
-        self.pass_pickup_x = None
-        self.pass_pickup_y = None
+        self.size = (7,)
+        self.observation_space = gym.spaces.Box(low=0, high=1, shape=self.size, dtype=np.float32)
 
     def observation(self, observation):
         taxi_row, taxi_col, pass_idx, dest_idx = self.decode(observation)
@@ -74,20 +70,20 @@ class TaxiObsWrapper(gym.ObservationWrapper):
         normed_taxi_y = taxi_row / 4
 
         if pass_idx == 0:
-            self.pass_pickup_x = 0.
-            self.pass_pickup_y = 0.
+            pass_pickup_x = 0.
+            pass_pickup_y = 0.
             pass_in_car = 0.
         elif pass_idx == 1:
-            self.pass_pickup_x = 1.
-            self.pass_pickup_y = 0.
+            pass_pickup_x = 1.
+            pass_pickup_y = 0.
             pass_in_car = 0.
         elif pass_idx == 2:
-            self.pass_pickup_x = 0.
-            self.pass_pickup_y = 1.
+            pass_pickup_x = 0.
+            pass_pickup_y = 1.
             pass_in_car = 0.
         elif pass_idx == 3:
-            self.pass_pickup_x = 0.75
-            self.pass_pickup_y = 1.
+            pass_pickup_x = 0.75
+            pass_pickup_y = 1.
             pass_in_car = 0.
         elif pass_idx == 4:
             pass_in_car = 1.
@@ -109,11 +105,17 @@ class TaxiObsWrapper(gym.ObservationWrapper):
         else:
             raise ValueError(f"Destination's index {dest_idx} is invalid")
 
+        # Passenger location is taxi's location if in the car, else it's pickup location
+        if pass_in_car:
+            pass_loc_x, pass_loc_y = normed_taxi_x, normed_taxi_y
+        else:
+            pass_loc_x, pass_loc_y = pass_pickup_x, pass_pickup_y
+
         normed_obs = np.empty(shape=self.size)
         normed_obs[0] = normed_taxi_x
         normed_obs[1] = normed_taxi_y
-        normed_obs[2] = self.pass_pickup_x
-        normed_obs[3] = self.pass_pickup_y
+        normed_obs[2] = pass_loc_x
+        normed_obs[3] = pass_loc_y
         normed_obs[4] = dest_x
         normed_obs[5] = dest_y
         normed_obs[6] = pass_in_car
