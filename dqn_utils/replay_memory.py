@@ -124,7 +124,7 @@ class PrioritizedReplayMemory(ReplayMemory):
         self.epsilon = 1e-6
 
         # Now make the buffer
-        self.buffer = PrioritizedReplayBuffer(capacity, self.alpha)
+        self.buffer = PrioritizedReplayBuffer(env, capacity, self.alpha)
         self.batch_size = batch_size
         self.capacity = capacity
 
