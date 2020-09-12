@@ -172,7 +172,7 @@ class ReplayBuffer(object):
         self._next_idx = (self._next_idx + 1) % self._maxsize
 
     def _encode_sample(self, idxes):
-        i = np.asarray(idxes)
+        i = (self._next_idx + np.asarray(idxes)) % len(self)
         observations = self.observations[i]
         actions = self.actions[i]
         rewards = self.rewards[i]
@@ -200,7 +200,7 @@ class ReplayBuffer(object):
             done_mask[i] = 1 if executing act_batch[i] resulted in
             the end of an episode and 0 otherwise.
         """
-        idxes = [random.randint(0, len(self) - 1) for _ in range(batch_size)]
+        idxes = [np.random.randint(0, len(self) - 1) for _ in range(batch_size)]
         return self._encode_sample(idxes)
 
 
