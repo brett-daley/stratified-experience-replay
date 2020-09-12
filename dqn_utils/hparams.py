@@ -9,9 +9,11 @@ from dqn_utils import schedules
 def get_hparams(env_name):
     if env_name in atari_env.ALL_GAMES:
         return atari_hparams()
-    if env_name == 'FrozenLake-v0':
+    if env_name in ('FrozenLake-v0', 'FrozenLake8x8-v0', 'Taxi-v3'):
         return frozenlake_hparams()
-    return other_hparams()
+    if env_name == 'CartPole-v0':
+        return other_hparams()
+    raise ValueError(f'environment {env_name} has no hyperparameters assigned')
 
 
 def atari_hparams():

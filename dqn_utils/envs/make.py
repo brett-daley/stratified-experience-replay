@@ -13,6 +13,11 @@ def make_env(env_name, seed):
         # Added to accommodate FrozenLake (which is not an ALE game)
         if env_name == 'FrozenLake-v0':
             env = atari_env.make_frozenlake(env_name)
+        elif env_name == 'FrozenLake8x8-v0':
+            env = atari_env.make_frozenlake(env_name)
+        # Added to accommodate Taxi (which is not an ALE game)
+        elif env_name == 'Taxi-v3':
+            env = atari_env.make_taxi(env_name)
         else:
             env = gym.make(env_name)
             env = monitor(env, env_name)
