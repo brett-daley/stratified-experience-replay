@@ -95,7 +95,7 @@ def main():
                         # Dispatches 'runscript.sh' to SLURM if '--go' flag was specified in CLI
                         print(basename)
                         # Adjust memory usage depending on memory type:
-                        # 64GB for StratifiedReplayMemory and 32 for ReplayMemory
+                        # 64GB for StratifiedReplayMemory and 32GB otherwise
                         # Note that memory is input in MB, not GB
                         if rmem_type == 'StratifiedReplayMemory':
                             mem = 64000
@@ -103,7 +103,9 @@ def main():
                             dispatch(out_file, err_file, cmd, hours, mem, args.go)
                             print(f"Run will use StratifiedReplayMemory, w/ {mem}MB RAM for up to {hours} hours")
                         else:
-                            dispatch(out_file, err_file, cmd, 7, 32000, args.go)
+                            mem = 32000
+                            hours = 7
+                            dispatch(out_file, err_file, cmd, hours, mem, args.go)
                             print(f"Run will use {mem}MB RAM for up to {hours} hours")
 
     if not args.go:
