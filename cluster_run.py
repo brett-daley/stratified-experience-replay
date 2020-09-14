@@ -2,21 +2,23 @@ import argparse
 import subprocess
 import os.path
 import math
-from atari_env import ALL_GAMES
+# from atari_env import ALL_GAMES
 
 ######### RUN PARAMETERS #########
-env_grid = ['beam_rider', 'breakout', 'pong', 'seaquest', 'space_invaders']
+env_grid = ['pong']
+# rmem_grid = ['StratifiedReplayMemory', 'ReplayMemory']
+rmem_grid = ['StratifiedReplayMemory']
 # env_grid = ALL_GAMES
-n_grid = [1, 3, 5, 7]  # n-step learning
-m_grid = [0, 2, 3, 4]  # m-strap learning (0 means disabled)
+n_grid = [1]  # n-step learning
+m_grid = [0]  # m-strap learning (0 means disabled)
 seed_grid = range(1)
 
 # CAUTION: Changes in timesteps will NOT be reflected in output/err file names
-timesteps = 5_000_000
+timesteps = 10_000_000
 ##################################
 
 
-def dispatch(out_file, err_file, cmd, max_hours, go):
+def dispatch(out_file, err_file, cmd, max_hours, mem, go):
     """
     Populates 'runscript.sh' file to run 'dqn.py' file
     on cluster's GPU partition for 'max_hours' hours with 1 node, 1 core, and 32GB memory
@@ -29,11 +31,11 @@ def dispatch(out_file, err_file, cmd, max_hours, go):
 #SBATCH -t {format_time(max_hours)}           # Runtime in D-HH:MM, minimum of 10 minutes
 #SBATCH -p gpu               # Partition to submit to
 #SBATCH --gres=gpu           # number of GPUs (here 1; see also --gres=gpu:n)
-#SBATCH --mem=32000          # Memory pool for all cores (see also --mem-per-cpu)
+#SBATCH --mem={mem}          # Memory pool for all cores in MB (see also --mem-per-cpu)
 #SBATCH -o {out_file}  # File to which STDOUT will be written, %j inserts jobid
 #SBATCH -e {err_file}  # File to which STDERR will be written, %j inserts jobid
 module load Anaconda3/5.0.1-fasrc01  # Load module
-module load cudnn/7.6.5.32_cuda10.1-fasrc01
+module load cuda/10.1.243-fasrc01
 source activate openaigym  # Switch to openaigym conda environment
 {cmd}  # Run code
 """
@@ -59,6 +61,7 @@ def format_time(total_hours):
 def print_red(string):
     print('\033[1;31;40m' + string + '\033[0;37;40m')
 
+
 def print_yellow(string):
     print('\033[1;33;40m' + string + '\033[0;37;40m')
 
@@ -70,29 +73,38 @@ def main():
     args = parser.parse_args()
 
     for env in env_grid:
-        for n in n_grid:
-            for m in m_grid:
-                for seed in seed_grid:
-                    # Generate file paths and executable command
-                    env_no_underscore = env.replace("_", "")  # Reformat env name for output file name
-                    basename = f'env-{env_no_underscore}_n-{n}_m-{m}_seed-{seed}'
-                    out_file = basename + '.txt'
-                    err_file = basename + '.err.txt'
-                    cmd = f'python3 dqn.py --env {env} -n {n} -m {m} --timesteps {timesteps} --seed {seed}'
+        for rmem_type in rmem_grid:
+            for n in n_grid:
+                for m in m_grid:
+                    for seed in seed_grid:
+                        # Generate file paths and executable command
+                        env_no_underscore = env.replace("_", "")  # Reformat env name for output file name
+                        basename = f'env-{env_no_underscore}_n-{n}_m-{m}_seed-{seed}_rmem-{rmem_type}'
+                        out_file = basename + '.txt'
+                        err_file = basename + '.err.txt'
+                        cmd = f'python3 dqn.py --env {env} -n {n} -m {m} --timesteps {timesteps} --seed {seed} --rmem_type {rmem_type}'
 
-                    # If file for a configuration exists, skip over that configuration
-                    if os.path.exists(out_file) or os.path.exists(err_file):
-                        print_red(f'{basename} (already exists; skipping)')
-                        continue
+                        # If file for a configuration exists, skip over that configuration
+                        if os.path.exists(out_file) or os.path.exists(err_file):
+                            print_red(f'{basename} (already exists; skipping)')
+                            continue
 
-                    # Otherwise, generate and run script on cluster
-                    # Populates 'runscript.sh' file to run 'dqn.py' file
-                    # on cluster's GPU partition with 1 node, 1 core, and 32GB memory
-                    # Dispatches 'runscript.sh' to SLURM if '--go' flag was specified in CLI
-                    print(basename)
-                    # Timing heuristic: 3 hours per 2500 minibatches/epoch, plus an extra hour
-                    # hours = (3*n + 1) if batch_flag else (3*m/2500 + 1)
-                    dispatch(out_file, err_file, cmd, 4, args.go)
+                        # Otherwise, generate and run script on cluster
+                        # Populates 'runscript.sh' file to run 'dqn.py' file
+                        # on cluster's GPU partition with 1 node, 1 core, and 32GB memory
+                        # Dispatches 'runscript.sh' to SLURM if '--go' flag was specified in CLI
+                        print(basename)
+                        # Adjust memory usage depending on memory type:
+                        # 64GB for StratifiedReplayMemory and 32 for ReplayMemory
+                        # Note that memory is input in MB, not GB
+                        if rmem_type == 'StratifiedReplayMemory':
+                            mem = 64000
+                            hours = 7
+                            dispatch(out_file, err_file, cmd, hours, mem, args.go)
+                            print(f"Run will use StratifiedReplayMemory, w/ {mem}MB RAM for up to {hours} hours")
+                        else:
+                            dispatch(out_file, err_file, cmd, 7, 32000, args.go)
+                            print(f"Run will use {mem}MB RAM for up to {hours} hours")
 
     if not args.go:
         print_yellow('''
