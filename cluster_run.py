@@ -2,16 +2,17 @@ import argparse
 import subprocess
 import os.path
 import math
+import time
 # from atari_env import ALL_GAMES
 
 ######### RUN PARAMETERS #########
 env_grid = ['pong']
-# rmem_grid = ['StratifiedReplayMemory', 'ReplayMemory']
-rmem_grid = ['StratifiedReplayMemory']
+rmem_grid = ['StratifiedReplayMemory', 'ReplayMemory']
+#rmem_grid = ['StratifiedReplayMemory']
 # env_grid = ALL_GAMES
 n_grid = [1]  # n-step learning
 m_grid = [0]  # m-strap learning (0 means disabled)
-seed_grid = range(1)
+seed_grid = range(3)
 
 # CAUTION: Changes in timesteps will NOT be reflected in output/err file names
 timesteps = 10_000_000
@@ -107,6 +108,7 @@ def main():
                             hours = 7
                             dispatch(out_file, err_file, cmd, hours, mem, args.go)
                             print(f"Run will use {mem}MB RAM for up to {hours} hours")
+                        time.sleep(2)
 
     if not args.go:
         print_yellow('''
