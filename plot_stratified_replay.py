@@ -5,10 +5,10 @@ import matplotlib.ticker as ticker
 from plot import save
 
 
-def format_plot():
+def format_plot(width_factor=1.0):
     ax = plt.gca()
     ax.set_aspect(1.0 / ax.get_data_ratio())
-    plt.gcf().set_size_inches(6.4, 6.4)
+    plt.gcf().set_size_inches(width_factor * 6.4, 6.4)
     plt.tight_layout(pad=0.05)
 
 
@@ -19,7 +19,11 @@ def plot_histogram():
 
     # Plot histogram of the state-action pair frequency
     counts = np.asarray(list(reversed(sorted(counts))))
-    plt.bar(1+np.arange(len(counts)), height=counts, width=1.0, color='g')
+    ranks = 1+np.arange(len(counts))
+    # Plot any values that occurred more than once (repeated values)
+    plt.bar(ranks[counts > 1], counts[counts > 1], bottom=1, width=1.0, color='r', alpha=0.5)
+    # Plot all values that occured at least once (unique values)
+    plt.bar(ranks[counts >= 1], np.ones_like(counts), bottom=0, width=1.0, color='b', alpha=0.5)
 
     plt.xlim([1, counts.sum()])
     plt.xscale('log')
@@ -29,7 +33,7 @@ def plot_histogram():
     plt.xlabel('Rank')
     plt.ylabel('Count')
 
-    format_plot()
+    format_plot(2.0)
     save('unique_frequency', directory='.', pdf=False)
 
 
