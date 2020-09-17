@@ -69,6 +69,7 @@ class HistoryWrapper(gym.Wrapper):
         self.deque = deque(maxlen=history_len)
 
         self.shape = self.observation_space.shape
+        self.dtype = self.observation_space.dtype
         self.observation_space.shape = (*self.shape[:-1], history_len * self.shape[-1])
 
     def step(self, action):
@@ -87,7 +88,7 @@ class HistoryWrapper(gym.Wrapper):
 
     def _clear(self):
         for _ in range(self.history_len):
-            self.deque.append(np.zeros(self.shape))
+            self.deque.append(np.zeros(self.shape, dtype=self.dtype))
 
 class NoopResetWrapper(gym.Wrapper):
     '''Sample initial states by taking a random number of no-ops on reset.
@@ -118,6 +119,7 @@ class PreprocessedImageWrapper(gym.ObservationWrapper):
             observation = cv2.cvtColor(observation, cv2.COLOR_BGR2GRAY)
         observation = cv2.resize(observation, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
         return observation.reshape(self.shape).astype(np.uint8)
+
 
 
 ALL_GAMES = (
