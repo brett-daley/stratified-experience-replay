@@ -6,7 +6,7 @@ import cv2
 
 from dqn_utils import envs
 
-def make(game, size=84, grayscale=True, history_len=4):
+def make(game, size=84, grayscale=True):
     env = AtariEnv(game, frameskip=4, obs_type='image')
     env = envs.make.monitor(env, game)
     if 'FIRE' in env.unwrapped.get_action_meanings():
@@ -15,8 +15,8 @@ def make(game, size=84, grayscale=True, history_len=4):
     env = EpisodicLifeWrapper(env)
     env = ClippedRewardWrapper(env)
     env = PreprocessedImageWrapper(env, size, grayscale)
-    if history_len > 1:
-        env = HistoryWrapper(env, history_len)
+    # if history_len > 1:
+    #     env = HistoryWrapper(env, history_len)
     return env
 
 class ClippedRewardWrapper(gym.RewardWrapper):

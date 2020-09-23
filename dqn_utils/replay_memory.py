@@ -7,9 +7,10 @@ from dqn_utils.random_dict import RandomDict
 
 
 class ReplayMemory:
-    def __init__(self, env, batch_size=32, capacity=1_000_000):
+    def __init__(self, env, batch_size=32, capacity=1_000_000, history_len=1):
         self.batch_size = batch_size
         self.capacity = capacity
+        self.history_len = history_len
         self.size_now = 0
         self.pointer = 0
 
@@ -32,10 +33,10 @@ class ReplayMemory:
         # Sample indices for the minibatch
         i = np.asarray([self._sample_index(nsteps) for _ in range(self.batch_size)])
 
-        observations = self.observations[i]
+        observations = self._make_observation_batch(i)
         actions = self.actions[i]
         dones = self.dones[i]
-        bootstrap_observations = self.observations[(i + nsteps) % self.size_now]
+        bootstrap_observations = self._make_observation_batch(i + nsteps)
 
         # Compute n-step rewards and get n-step bootstraps
         for k in range(nsteps):
@@ -53,6 +54,34 @@ class ReplayMemory:
     def _sample_index(self, nsteps):
         x = np.random.randint(self.size_now - nsteps)
         return (self.pointer + x) % self.size_now
+
+    def _make_observation_batch(self, indices):
+        observations = [self._get_history(i) for i in indices]
+        return np.stack(observations)
+
+    def _get_history(self, i):
+        history = []
+        if self.size_now > 0:
+            for j in range(self.history_len):
+                # Count backwards: x = i, i-1, i-2, ...
+                x = (i - j) % self.size_now
+                # Stop if we hit a previous episode
+                if (j > 0) and self.dones[x]:
+                    break
+                # Add this observation to the history
+                history.append(self.observations[x])
+                # Stop if this was the oldest experience in the memory
+                if x == self.pointer:
+                    break
+
+        # If we stopped early, then we need to pad with zeros
+        zero_pad = np.zeros_like(self.observations[0])
+        while len(history) < self.history_len:
+            history.append(zero_pad)
+
+        # Our history is backwards; reverse it, then stack along the last axis
+        history = list(reversed(history))
+        return np.concatenate(history, axis=-1)
 
 
 class StratifiedReplayMemory(ReplayMemory):
@@ -115,7 +144,7 @@ class StratifiedReplayMemory(ReplayMemory):
             import sys; sys.exit()
 
 
-class PrioritizedReplayMemory(ReplayMemory):
+class PrioritizedReplayMemory:
     def __init__(self, env, batch_size=32, capacity=1_000_000):
         # Just hardcode the prioritization hyperparameters here
         # These are the default from the original paper, and OpenAI uses them too

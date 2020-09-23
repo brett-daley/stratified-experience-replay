@@ -9,6 +9,7 @@ import time
 import math
 import wandb
 import random
+from collections import deque
 
 import dqn_utils
 
@@ -27,7 +28,10 @@ class DQNAgent:
         self.update_freq = kwargs['update_freq']
         self.hparams = kwargs
 
-        input_shape = env.observation_space.shape
+        shape = env.observation_space.shape
+        history_len = self.replay_memory.history_len
+        input_shape = (*shape[:-1], history_len * shape[-1])
+
         self.n_actions = env.action_space.n
         model_fn = kwargs['model_fn']
 
@@ -145,6 +149,7 @@ class BatchmodeDQNAgent(DQNAgent):
 
 def train(env, agent, prepopulate, epsilon_schedule, timesteps):
     observation = env.reset()
+    history_deque = deque(maxlen=agent.replay_memory.history_len)
 
     print('timestep', 'episode', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
     for t in range(-prepopulate, timesteps+1):  # Relative to training start
@@ -168,10 +173,19 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
 
             agent.update(t)
 
-        action = agent.policy(observation, epsilon)
+        # Update the history and use it to select an action
+        history_deque.append(observation)
+        history = list(history_deque)
+        while len(history) < agent.replay_memory.history_len:
+            history.append(np.zeros_like(observation))
+        history = np.concatenate(list(history), axis=-1)
+        action = agent.policy(history, epsilon)
+
+        # Execute action, reset if done, store result in memory
         new_observation, reward, done, _ = env.step(action)
         if done:
             new_observation = env.reset()
+            history_deque.clear()
         agent.save(observation, action, reward, done, new_observation)
         observation = new_observation
 
@@ -220,7 +234,8 @@ if __name__ == '__main__':
         # Intercept the standard replay memory constructor and replace it
         rmem_cls = getattr(dqn_utils.replay_memory, args.rmem_type)
         rmem = hparams['rmem_constructor'](env)
-        hparams['rmem_constructor'] = lambda e: rmem_cls(e, batch_size=rmem.batch_size, capacity=rmem.capacity)
+        hparams['rmem_constructor'] = lambda e: rmem_cls(e, batch_size=rmem.batch_size, capacity=rmem.capacity,
+                                                         history_len=rmem.history_len)
 
     print(hparams)
     agent = agent_cls(env, args.nsteps, args.minibatches, **hparams)
