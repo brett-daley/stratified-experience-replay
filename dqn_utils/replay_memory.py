@@ -138,10 +138,10 @@ class PrioritizedReplayMemory(ReplayMemory):
 
         beta = self.beta_schedule(train_frac)
         observations, actions, rewards, next_observations,\
-            done_mask, weights, indices = self.buffer.sample(self.batch_size, beta)
+            dones, weights, indices = self.buffer.sample(self.batch_size, beta)
 
         rewards = rewards.astype(np.float32)
-        done_mask = done_mask.astype(np.float32)
+        done_mask = 1.0 - dones.astype(np.float32)
         weights = weights.astype(np.float32)
 
         return (observations, actions, rewards, done_mask, next_observations, weights), indices
