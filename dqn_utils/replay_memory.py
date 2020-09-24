@@ -61,18 +61,20 @@ class ReplayMemory:
 
     def _get_history(self, i):
         history = []
-        if self.size_now > 0:
-            for j in range(self.history_len):
-                # Count backwards: x = i, i-1, i-2, ...
-                x = (i - j) % self.size_now
-                # Stop if we hit a previous episode
-                if (j > 0) and self.dones[x]:
-                    break
-                # Add this observation to the history
-                history.append(self.observations[x])
-                # Stop if this was the oldest experience in the memory
-                if x == self.pointer:
-                    break
+        for j in range(self.history_len):
+            # Count backwards: x = i, i-1, i-2, ...
+            x = (i - j) % self.capacity
+            # Stop if we hit a previous episode
+            if (j > 0) and self.dones[x]:
+                break
+            # Add this observation to the history
+            history.append(self.observations[x])
+            # Stop if the memory isn't full and we're trying to wrap around
+            if not self._is_full() and (x == 0):
+                break
+            # Stop if the memory is full and this was the oldest experience
+            if self._is_full() and (x == self.pointer):
+                break
 
         # If we stopped early, then we need to pad with zeros
         zero_pad = np.zeros_like(self.observations[0])
