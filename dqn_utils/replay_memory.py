@@ -52,7 +52,8 @@ class ReplayMemory:
         return (observations, actions, nstep_rewards, done_mask, bootstrap_observations, weights), i
 
     def _sample_index(self, nsteps):
-        x = np.random.randint(self.size_now - nsteps)
+        # We can't sample too close to either end of the buffer
+        x = np.random.randint(self.history_len-1, self.size_now - nsteps)
         return (self.pointer + x) % self.size_now
 
     def _make_observation_batch(self, indices):
@@ -69,12 +70,6 @@ class ReplayMemory:
                 break
             # Add this observation to the history
             history.append(self.observations[x])
-            # Stop if the memory isn't full and we're trying to wrap around
-            if not self._is_full() and (x == 0):
-                break
-            # Stop if the memory is full and this was the oldest experience
-            if self._is_full() and (x == self.pointer):
-                break
 
         # If we stopped early, then we need to pad with zeros
         zero_pad = np.zeros_like(self.observations[0])
