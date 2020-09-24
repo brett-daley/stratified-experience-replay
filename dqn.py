@@ -186,7 +186,7 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
         if done:
             new_observation = env.reset()
             history_deque.clear()
-        agent.save(observation, action, reward, done, new_observation)
+        agent.save(observation, action, reward, done, new_observation, history)
         observation = new_observation
 
 

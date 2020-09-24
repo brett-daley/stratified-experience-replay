@@ -20,7 +20,7 @@ class ReplayMemory:
         self.rewards = np.empty(capacity, dtype=np.float32)
         self.dones = np.empty(capacity, dtype=np.float32)
 
-    def save(self, observation, action, reward, done, new_observation):
+    def save(self, observation, action, reward, done, new_observation, history):
         p = self.pointer
         self.observations[p], self.actions[p], self.rewards[p], self.dones[p] = observation, action, reward, done
         self.size_now = min(self.size_now + 1, self.capacity)
@@ -82,31 +82,34 @@ class ReplayMemory:
 
 
 class StratifiedReplayMemory(ReplayMemory):
-    def __init__(self, env, batch_size=32, capacity=1_000_000):
-        super().__init__(env, batch_size, capacity)
+    def __init__(self, env, batch_size=32, capacity=1_000_000, history_len=1):
+        super().__init__(env, batch_size, capacity, history_len)
+        self.hashes = np.empty(capacity, dtype=np.longlong)
         self.pair_to_indices_dict = RandomDict()
 
-    def save(self, observation, action, reward, done, new_observation):
+    def save(self, observation, action, reward, done, new_observation, history):
         p = self.pointer
 
         # self._update_histogram_data()
 
         # If we're full, we need to delete the oldest entry first
         if self._is_full():
-            old_pair = make_pair(self.observations[p], self.actions[p])
-            old_index_deque = self.pair_to_indices_dict[old_pair]
+            old_key = (self.hashes[p], self.actions[p])
+            old_index_deque = self.pair_to_indices_dict[old_key]
             old_index_deque.popleft()
             if not old_index_deque:
-                self.pair_to_indices_dict.pop(old_pair)
+                self.pair_to_indices_dict.pop(old_key)
 
         # Update the index for the new entry
-        new_pair = make_pair(observation, action)
-        if new_pair not in self.pair_to_indices_dict:
-            self.pair_to_indices_dict[new_pair] = deque()
-        self.pair_to_indices_dict[new_pair].append(p)
+        history_hash = hash(history.tostring())
+        new_key = (history_hash, action)
+        if new_key not in self.pair_to_indices_dict:
+            self.pair_to_indices_dict[new_key] = deque()
+        self.pair_to_indices_dict[new_key].append(p)
 
         # Save the transition
-        super().save(observation, action, reward, done, new_observation)
+        self.hashes[p] = history_hash
+        super().save(observation, action, reward, done, new_observation, history)
 
     def sample(self, discount, nsteps, train_frac):
         if nsteps != 1:
@@ -115,13 +118,13 @@ class StratifiedReplayMemory(ReplayMemory):
         return super().sample(discount, nsteps, train_frac)
 
     def _sample_index(self, nsteps):
-        index_deque = self.pair_to_indices_dict.random_value()
-        x = random.choice(index_deque)
-        # Make sure the sampled index has room to bootstrap
-        if (x - self.pointer) % self.size_now >= self.capacity - nsteps:
-            # It's too close to the pointer; recurse and try again
-            return self._sample_index(nsteps)
-        return x
+        # Keep trying until we don't sample too close to either end of the buffer
+        while True:
+            index_deque = self.pair_to_indices_dict.random_value()
+            x = random.choice(index_deque)  # Physical address
+            i = (x - self.pointer) % self.size_now  # Relative to pointer
+            if (self.history_len - 1) <= i < (self.size_now - nsteps):
+                return x
 
     def _update_histogram_data(self):
         if not self._is_full():
@@ -175,7 +178,3 @@ class PrioritizedReplayMemory:
     def update_td_errors(self, indices, td_errors):
         new_priorities = np.abs(td_errors) + self.epsilon
         self.buffer.update_priorities(indices, new_priorities)
-
-
-def make_pair(observation, action):
-    return (observation.tostring(), action)
