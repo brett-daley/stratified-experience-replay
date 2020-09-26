@@ -9,52 +9,62 @@ from dqn_utils.random_dict import RandomDict
 class ReplayMemory:
     def __init__(self, env, batch_size=32, capacity=1_000_000, history_len=1):
         self.batch_size = batch_size
-        self.capacity = capacity
+        self.capacity = capacity                      # Nominal size
+        self._buff_size = capacity + (history_len-1)  # Actual size bigger to save history
         self.history_len = history_len
         self.size_now = 0
         self.pointer = 0
+        self.base = None  # Another pointer that's used to shift our sampled indices
 
-        self.observations = np.empty(shape=[capacity, *env.observation_space.shape],
+        # NOTE: Must initialize observations with zeros to implicitly pad early observations
+        self.observations = np.zeros(shape=[self._buff_size, *env.observation_space.shape],
                                      dtype=env.observation_space.dtype)
-        self.actions = np.empty(capacity, dtype=np.int32)
-        self.rewards = np.empty(capacity, dtype=np.float32)
-        self.dones = np.empty(capacity, dtype=np.float32)
+        self.actions = np.empty(self._buff_size, dtype=np.int32)
+        self.rewards = np.empty(self._buff_size, dtype=np.float32)
+        self.dones = np.empty(self._buff_size, dtype=np.float32)
 
     def save(self, observation, action, reward, done, new_observation, history):
         p = self.pointer
         self.observations[p], self.actions[p], self.rewards[p], self.dones[p] = observation, action, reward, done
         self.size_now = min(self.size_now + 1, self.capacity)
-        self.pointer = (self.pointer + 1) % self.capacity
+        self.pointer = (self.pointer + 1) % self._buff_size
+        self.base = (self.pointer - self.size_now) % self._buff_size
 
     def _is_full(self):
         return self.size_now == self.capacity
 
     def sample(self, discount, nsteps, train_frac):
+        if nsteps != 1:
+            raise NotImplementedError('ReplayMemory supports only 1-step returns')
+
         # Sample indices for the minibatch
         i = np.asarray([self._sample_index(nsteps) for _ in range(self.batch_size)])
 
-        observations = self._make_observation_batch(i)
-        actions = self.actions[i]
-        dones = self.dones[i]
-        bootstrap_observations = self._make_observation_batch(i + nsteps)
+        observations = self._get_batch(self.observations, i)
+        actions = self._get_batch(self.actions, i)
+        dones = self._get_batch(self.dones, i)
+        bootstrap_observations = self._get_batch(self.observations, i + nsteps)
 
-        # Compute n-step rewards and get n-step bootstraps
-        for k in range(nsteps):
-            if k == 0:
-                nstep_rewards = self.rewards[i]
-                done_mask = (1.0 - self.dones[i])
-            else:
-                x = (i+k) % self.size_now
-                nstep_rewards += done_mask * pow(discount, k) * self.rewards[x]
-                done_mask *= (1.0 - self.dones[x])
+        nstep_rewards = self._get_batch(self.rewards, i)
+        done_mask = (1.0 - dones)
 
         weights = np.ones_like(nstep_rewards)
         return (observations, actions, nstep_rewards, done_mask, bootstrap_observations, weights), i
 
     def _sample_index(self, nsteps):
-        # We can't sample too close to either end of the buffer
-        x = np.random.randint(self.history_len-1, self.size_now - nsteps)
-        return (self.pointer + x) % self.size_now
+        # Subtract nsteps so we have room to bootstrap at the end
+        return np.random.randint(self.size_now - nsteps)
+
+    def _get_batch(self, array, indices):
+        # Indices should be in [0, size_now)
+        assert indices.max() < self.size_now
+        # Shift by the base pointer
+        indices = (self.base + indices) % self._buff_size
+
+        # Now make the batch
+        if array is self.observations:
+            return self._make_observation_batch(indices)
+        return array[indices]
 
     def _make_observation_batch(self, indices):
         observations = [self._get_history(i) for i in indices]
@@ -64,7 +74,7 @@ class ReplayMemory:
         history = []
         for j in range(self.history_len):
             # Count backwards: x = i, i-1, i-2, ...
-            x = (i - j) % self.capacity
+            x = (i - j) % self._buff_size
             # Stop if we hit a previous episode
             if (j > 0) and self.dones[x]:
                 break

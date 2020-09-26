@@ -150,6 +150,8 @@ class BatchmodeDQNAgent(DQNAgent):
 def train(env, agent, prepopulate, epsilon_schedule, timesteps):
     observation = env.reset()
     history_deque = deque(maxlen=agent.replay_memory.history_len)
+    while len(history_deque) < agent.replay_memory.history_len:
+        history_deque.append(np.zeros_like(observation))
 
     print('timestep', 'episode', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
     for t in range(-prepopulate, timesteps+1):  # Relative to training start
@@ -175,10 +177,7 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
 
         # Update the history and use it to select an action
         history_deque.append(observation)
-        history = list(history_deque)
-        while len(history) < agent.replay_memory.history_len:
-            history.append(np.zeros_like(observation))
-        history = np.concatenate(list(history), axis=-1)
+        history = np.concatenate(list(history_deque), axis=-1)
         action = agent.policy(history, epsilon)
 
         # Execute action, reset if done, store result in memory
@@ -186,6 +185,8 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
         if done:
             new_observation = env.reset()
             history_deque.clear()
+            while len(history_deque) < agent.replay_memory.history_len:
+                history_deque.append(np.zeros_like(observation))
         agent.save(observation, action, reward, done, new_observation, history)
         observation = new_observation
 
