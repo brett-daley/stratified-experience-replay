@@ -89,10 +89,8 @@ class DQNAgent:
     def _do_minibatch(self, t):
         minibatch, indices = self._sample(t)
         td_errors = self._train(*minibatch)
-        try:
+        if isinstance(self.replay_memory, dqn_utils.prioritization.PrioritizedReplayMemory):
             self.replay_memory.update_td_errors(indices, td_errors)
-        except AttributeError:
-            pass  # We're not using prioritization
 
     @tf.function
     def _train(self, observations, actions, nstep_rewards, done_mask, bootstrap_observations, weights):
@@ -233,7 +231,8 @@ if __name__ == '__main__':
     print('Using', args.rmem_type)
     if args.rmem_type != 'ReplayMemory':
         # Intercept the standard replay memory constructor and replace it
-        rmem_cls = getattr(dqn_utils.replay_memory, args.rmem_type)
+        rmem_cls = getattr(dqn_utils.prioritization, args.rmem_type)
+        # rmem_cls = getattr(dqn_utils.replay_memory, args.rmem_type)
         rmem = hparams['rmem_constructor'](env)
         hparams['rmem_constructor'] = lambda e: rmem_cls(e, batch_size=rmem.batch_size, capacity=rmem.capacity,
                                                          history_len=rmem.history_len)

@@ -3,6 +3,8 @@ import numpy as np
 import random
 import operator
 
+from dqn_utils.replay_memory import ReplayMemory
+
 
 class SegmentTree(object):
     def __init__(self, capacity, operation, neutral_element):
@@ -138,107 +140,32 @@ class MinSegmentTree(SegmentTree):
         return super(MinSegmentTree, self).reduce(start, end)
 
 
-class ReplayBuffer(object):
-    def __init__(self, env, size):
-        """Create Replay buffer.
-        Parameters
-        ----------
-        env: gym.Env
-            OpenAI Gym environment.
-        size: int
-            Max number of transitions to store in the buffer. When the buffer
-            overflows the old memories are dropped.
-        """
-        self.observations = np.empty(shape=[size, *env.observation_space.shape],
-                                     dtype=env.observation_space.dtype)
-        self.actions = np.empty(size, dtype=np.int32)
-        self.rewards = np.empty(size, dtype=np.float32)
-        self.dones = np.empty(size, dtype=np.float32)
+class PrioritizedReplayMemory(ReplayMemory):
+    def __init__(self, env, batch_size=32, capacity=1_000_000, history_len=1):
+        super().__init__(env, batch_size, capacity, history_len)
 
-        self._maxsize = size
-        self._size_now = 0
-        self._next_idx = 0
-
-    def __len__(self):
-        return self._size_now
-
-    def add(self, obs_t, action, reward, obs_tp1, done):
-        self.observations[self._next_idx] = obs_t
-        self.actions[self._next_idx] = action
-        self.rewards[self._next_idx] = reward
-        self.dones[self._next_idx] = done
-
-        self._size_now = min(self._size_now + 1, self._maxsize)
-        self._next_idx = (self._next_idx + 1) % self._maxsize
-
-    def _encode_sample(self, idxes):
-        i = (self._next_idx + np.asarray(idxes)) % len(self)
-        observations = self.observations[i]
-        actions = self.actions[i]
-        rewards = self.rewards[i]
-        next_observations = self.observations[(i+1) % len(self)]
-        dones = self.dones[i]
-        return observations, actions, rewards, next_observations, dones
-
-    def sample(self, batch_size):
-        """Sample a batch of experiences.
-        Parameters
-        ----------
-        batch_size: int
-            How many transitions to sample.
-        Returns
-        -------
-        obs_batch: np.array
-            batch of observations
-        act_batch: np.array
-            batch of actions executed given obs_batch
-        rew_batch: np.array
-            rewards received as results of executing act_batch
-        next_obs_batch: np.array
-            next set of observations seen after executing act_batch
-        done_mask: np.array
-            done_mask[i] = 1 if executing act_batch[i] resulted in
-            the end of an episode and 0 otherwise.
-        """
-        idxes = [np.random.randint(0, len(self) - 1) for _ in range(batch_size)]
-        return self._encode_sample(idxes)
-
-
-class PrioritizedReplayBuffer(ReplayBuffer):
-    def __init__(self, env, size, alpha):
-        """Create Prioritized Replay buffer.
-        Parameters
-        ----------
-        env: gym.Env
-            OpenAI Gym environment.
-        size: int
-            Max number of transitions to store in the buffer. When the buffer
-            overflows the old memories are dropped.
-        alpha: float
-            how much prioritization is used
-            (0 - no prioritization, 1 - full prioritization)
-        See Also
-        --------
-        ReplayBuffer.__init__
-        """
-        super(PrioritizedReplayBuffer, self).__init__(env, size)
-        assert alpha >= 0
-        self._alpha = alpha
+        # Just hardcode the prioritization hyperparameters here
+        # These are the default from the original paper, and OpenAI uses them too
+        self.alpha = 0.6
+        self.beta_schedule = lambda train_frac: 0.4 + 0.6 * train_frac
+        self.epsilon = 1e-6
 
         it_capacity = 1
-        while it_capacity < size:
+        while it_capacity < capacity:
             it_capacity *= 2
 
         self._it_sum = SumSegmentTree(it_capacity)
         self._it_min = MinSegmentTree(it_capacity)
         self._max_priority = 1.0
 
-    def add(self, *args, **kwargs):
-        """See ReplayBuffer.store_effect"""
-        idx = self._next_idx
-        super().add(*args, **kwargs)
-        self._it_sum[idx] = self._max_priority ** self._alpha
-        self._it_min[idx] = self._max_priority ** self._alpha
+    def __len__(self):
+        return self.size_now
+
+    def save(self, observation, action, reward, done, new_observation, history):
+        p = self.pointer
+        super().save(observation, action, reward, done, new_observation, history)
+        self._it_sum[p] = self._max_priority ** self.alpha
+        self._it_min[p] = self._max_priority ** self.alpha
 
     def _sample_proportional(self, batch_size):
         res = []
@@ -250,41 +177,27 @@ class PrioritizedReplayBuffer(ReplayBuffer):
             res.append(idx)
         return res
 
-    def sample(self, batch_size, beta):
-        """Sample a batch of experiences.
-        compared to ReplayBuffer.sample
-        it also returns importance weights and idxes
-        of sampled experiences.
-        Parameters
-        ----------
-        batch_size: int
-            How many transitions to sample.
-        beta: float
-            To what degree to use importance weights
-            (0 - no corrections, 1 - full correction)
-        Returns
-        -------
-        obs_batch: np.array
-            batch of observations
-        act_batch: np.array
-            batch of actions executed given obs_batch
-        rew_batch: np.array
-            rewards received as results of executing act_batch
-        next_obs_batch: np.array
-            next set of observations seen after executing act_batch
-        done_mask: np.array
-            done_mask[i] = 1 if executing act_batch[i] resulted in
-            the end of an episode and 0 otherwise.
-        weights: np.array
-            Array of shape (batch_size,) and dtype np.float32
-            denoting importance weight of each sampled transition
-        idxes: np.array
-            Array of shape (batch_size,) and dtype np.int32
-            idexes in buffer of sampled experiences
-        """
-        assert beta > 0
+    def sample(self, discount, nsteps, train_frac):
+        if nsteps != 1:
+            raise NotImplementedError('PrioritizedReplayMemory supports only 1-step returns')
 
-        idxes = self._sample_proportional(batch_size)
+        # HACK: lets us pass these indices to self._sample_index one by one
+        self.t = 0
+        self.idxes = self._sample_proportional(self.batch_size)
+
+        # If we sample an invalid index, we resample randomly from a new batch to avoid bias
+        for i in range(self.batch_size):
+            # An index is invalid if it's too far from the base
+            # The relative distance must be in [0, size_now - nsteps]
+            while (self.idxes[i] - self.base) % self._buff_size > self.size_now - 1:
+                # Keep resampling until we get a good index
+                new_idxes = self._sample_proportional(self.batch_size)
+                self.idxes[i] = random.choice(new_idxes)
+
+        (observations, actions, nstep_rewards, done_mask, bootstrap_observations, _), idxes = super().sample(discount, nsteps, train_frac)
+
+        beta = self.beta_schedule(train_frac)
+        assert beta > 0
 
         weights = []
         p_min = self._it_min.min() / self._it_sum.sum()
@@ -294,11 +207,20 @@ class PrioritizedReplayBuffer(ReplayBuffer):
             p_sample = self._it_sum[idx] / self._it_sum.sum()
             weight = (p_sample * len(self)) ** (-beta)
             weights.append(weight / max_weight)
-        weights = np.array(weights)
-        encoded_sample = self._encode_sample(idxes)
-        return tuple(list(encoded_sample) + [weights, idxes])
+        weights = np.array(weights, dtype=np.float32)
 
-    def update_priorities(self, idxes, priorities):
+        return (observations, actions, nstep_rewards, done_mask, bootstrap_observations, weights), idxes
+
+    def _sample_index(self, nsteps):
+        i = self.idxes[self.t]
+        self.t += 1
+        return i
+
+    def update_td_errors(self, indices, td_errors):
+        new_priorities = np.abs(td_errors) + self.epsilon
+        self._update_priorities(indices, new_priorities)
+
+    def _update_priorities(self, idxes, priorities):
         """Update priorities of sampled transitions.
         sets priority of transition at index idxes[i] in buffer
         to priorities[i].
@@ -315,7 +237,7 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         for idx, priority in zip(idxes, priorities):
             assert priority > 0
             assert 0 <= idx < len(self)
-            self._it_sum[idx] = priority ** self._alpha
-            self._it_min[idx] = priority ** self._alpha
+            self._it_sum[idx] = priority ** self.alpha
+            self._it_min[idx] = priority ** self.alpha
 
             self._max_priority = max(self._max_priority, priority)
