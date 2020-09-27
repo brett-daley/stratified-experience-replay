@@ -12,6 +12,7 @@ import random
 from collections import deque
 
 import dqn_utils
+from dqn_utils.replay_memory import PrioritizedReplayMemory
 
 
 class DQNAgent:
@@ -89,7 +90,7 @@ class DQNAgent:
     def _do_minibatch(self, t):
         minibatch, indices = self._sample(t)
         td_errors = self._train(*minibatch)
-        if isinstance(self.replay_memory, dqn_utils.prioritization.PrioritizedReplayMemory):
+        if isinstance(self.replay_memory, PrioritizedReplayMemory):
             self.replay_memory.update_td_errors(indices, td_errors)
 
     @tf.function
@@ -231,8 +232,7 @@ if __name__ == '__main__':
     print('Using', args.rmem_type)
     if args.rmem_type != 'ReplayMemory':
         # Intercept the standard replay memory constructor and replace it
-        rmem_cls = getattr(dqn_utils.prioritization, args.rmem_type)
-        # rmem_cls = getattr(dqn_utils.replay_memory, args.rmem_type)
+        rmem_cls = getattr(dqn_utils.replay_memory, args.rmem_type)
         rmem = hparams['rmem_constructor'](env)
         hparams['rmem_constructor'] = lambda e: rmem_cls(e, batch_size=rmem.batch_size, capacity=rmem.capacity,
                                                          history_len=rmem.history_len)

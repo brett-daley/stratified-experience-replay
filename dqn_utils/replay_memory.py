@@ -2,8 +2,8 @@ import numpy as np
 import random
 from collections import deque
 
-# from dqn_utils.prioritization import PrioritizedReplayBuffer
 from dqn_utils.random_dict import RandomDict
+from dqn_utils.segment_tree import MinSegmentTree, SumSegmentTree
 
 
 class ReplayMemory:
@@ -152,3 +152,106 @@ class StratifiedReplayMemory(ReplayMemory):
                 count_list.append( len(index_deque) )
             np.savetxt('unique_frequency.txt', count_list, fmt='%d')
             import sys; sys.exit()
+
+
+class PrioritizedReplayMemory(ReplayMemory):
+    def __init__(self, env, batch_size=32, capacity=1_000_000, history_len=1):
+        super().__init__(env, batch_size, capacity, history_len)
+
+        # Just hardcode the prioritization hyperparameters here
+        # These are the default from the original paper, and OpenAI uses them too
+        self.alpha = 0.6
+        self.beta_schedule = lambda train_frac: 0.4 + 0.6 * train_frac
+        self.epsilon = 1e-6
+
+        it_capacity = 1
+        while it_capacity < capacity:
+            it_capacity *= 2
+
+        self._it_sum = SumSegmentTree(it_capacity)
+        self._it_min = MinSegmentTree(it_capacity)
+        self._max_priority = 1.0
+
+    def __len__(self):
+        return self.size_now
+
+    def save(self, observation, action, reward, done, new_observation, history):
+        p = self.pointer
+        super().save(observation, action, reward, done, new_observation, history)
+        self._it_sum[p] = self._max_priority ** self.alpha
+        self._it_min[p] = self._max_priority ** self.alpha
+
+    def _sample_proportional(self, batch_size):
+        res = []
+        p_total = self._it_sum.sum(0, len(self) - 1)
+        every_range_len = p_total / batch_size
+        for i in range(batch_size):
+            mass = random.random() * every_range_len + i * every_range_len
+            idx = self._it_sum.find_prefixsum_idx(mass)
+            res.append(idx)
+        return res
+
+    def sample(self, discount, nsteps, train_frac):
+        if nsteps != 1:
+            raise NotImplementedError('PrioritizedReplayMemory supports only 1-step returns')
+
+        # HACK: lets us pass these indices to self._sample_index one by one
+        self.t = 0
+        self.idxes = self._sample_proportional(self.batch_size)
+
+        # If we sample an invalid index, we resample randomly from a new batch to avoid bias
+        for i in range(self.batch_size):
+            # An index is invalid if it's too far from the base
+            # The relative distance must be in [0, size_now - nsteps]
+            while (self.idxes[i] - self.base) % self._buff_size > self.size_now - 1:
+                # Keep resampling until we get a good index
+                new_idxes = self._sample_proportional(self.batch_size)
+                self.idxes[i] = random.choice(new_idxes)
+
+        (observations, actions, nstep_rewards, done_mask, bootstrap_observations, _), idxes = super().sample(discount, nsteps, train_frac)
+
+        beta = self.beta_schedule(train_frac)
+        assert beta > 0
+
+        weights = []
+        p_min = self._it_min.min() / self._it_sum.sum()
+        max_weight = (p_min * len(self)) ** (-beta)
+
+        for idx in idxes:
+            p_sample = self._it_sum[idx] / self._it_sum.sum()
+            weight = (p_sample * len(self)) ** (-beta)
+            weights.append(weight / max_weight)
+        weights = np.array(weights, dtype=np.float32)
+
+        return (observations, actions, nstep_rewards, done_mask, bootstrap_observations, weights), idxes
+
+    def _sample_index(self, nsteps):
+        i = self.idxes[self.t]
+        self.t += 1
+        return i
+
+    def update_td_errors(self, indices, td_errors):
+        new_priorities = np.abs(td_errors) + self.epsilon
+        self._update_priorities(indices, new_priorities)
+
+    def _update_priorities(self, idxes, priorities):
+        """Update priorities of sampled transitions.
+        sets priority of transition at index idxes[i] in buffer
+        to priorities[i].
+        Parameters
+        ----------
+        idxes: [int]
+            List of idxes of sampled transitions
+        priorities: [float]
+            List of updated priorities corresponding to
+            transitions at the sampled idxes denoted by
+            variable `idxes`.
+        """
+        assert len(idxes) == len(priorities)
+        for idx, priority in zip(idxes, priorities):
+            assert priority > 0
+            assert 0 <= idx < len(self)
+            self._it_sum[idx] = priority ** self.alpha
+            self._it_min[idx] = priority ** self.alpha
+
+            self._max_priority = max(self._max_priority, priority)
