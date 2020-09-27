@@ -56,8 +56,8 @@ class ReplayMemory:
         return np.random.randint(self.size_now - nsteps)
 
     def _get_batch(self, array, indices):
-        # Indices should be in [0, size_now)
-        assert indices.max() < self.size_now
+        # Indices should be in [0, size_now - nsteps]
+        assert indices.max() <= self.size_now - 1
         # Shift by the base pointer
         indices = (self.base + indices) % self._buff_size
 
@@ -94,17 +94,17 @@ class ReplayMemory:
 class StratifiedReplayMemory(ReplayMemory):
     def __init__(self, env, batch_size=32, capacity=1_000_000, history_len=1):
         super().__init__(env, batch_size, capacity, history_len)
-        self.hashes = np.empty(capacity, dtype=np.longlong)
+        self.hashes = np.empty(self._buff_size, dtype=np.longlong)
         self.pair_to_indices_dict = RandomDict()
 
     def save(self, observation, action, reward, done, new_observation, history):
-        p = self.pointer
-
         # self._update_histogram_data()
 
         # If we're full, we need to delete the oldest entry first
         if self._is_full():
-            old_key = (self.hashes[p], self.actions[p])
+            # Oldest experience is actually (history_len-1) ahead of the pointer
+            x = (self.pointer + self.history_len - 1) % self._buff_size
+            old_key = (self.hashes[x], self.actions[x])
             old_index_deque = self.pair_to_indices_dict[old_key]
             old_index_deque.popleft()
             if not old_index_deque:
@@ -115,10 +115,10 @@ class StratifiedReplayMemory(ReplayMemory):
         new_key = (history_hash, action)
         if new_key not in self.pair_to_indices_dict:
             self.pair_to_indices_dict[new_key] = deque()
-        self.pair_to_indices_dict[new_key].append(p)
+        self.pair_to_indices_dict[new_key].append(self.pointer)
 
         # Save the transition
-        self.hashes[p] = history_hash
+        self.hashes[self.pointer] = history_hash
         super().save(observation, action, reward, done, new_observation, history)
 
     def sample(self, discount, nsteps, train_frac):
@@ -128,13 +128,13 @@ class StratifiedReplayMemory(ReplayMemory):
         return super().sample(discount, nsteps, train_frac)
 
     def _sample_index(self, nsteps):
-        # Keep trying until we don't sample too close to either end of the buffer
+        # Keep trying until we don't sample too close to the end of the buffer
         while True:
             index_deque = self.pair_to_indices_dict.random_value()
             x = random.choice(index_deque)  # Physical address
-            i = (x - self.pointer) % self.size_now  # Relative to pointer
-            if (self.history_len - 1) <= i < (self.size_now - nsteps):
-                return x
+            i = (x - self.base) % self._buff_size  # Relative to base
+            if i < self.size_now - nsteps:
+                return i
 
     def _update_histogram_data(self):
         if not self._is_full():
