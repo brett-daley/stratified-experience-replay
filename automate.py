@@ -8,7 +8,7 @@ import time
 from itertools import chain
 import yaml
 from io import StringIO
-
+import numpy as np
 
 class Dispatcher:
     def __init__(self):
@@ -143,22 +143,14 @@ def main():
     manifest_yaml = f"""
 manifest:
     env:
-      # classic 6 games:
-      - breakout
-      - beam_rider
-      - pong
-      - qbert
-      - seaquest
-      - space_invaders
-      # worst games for proportional PER:
-      - star_gunner
-      - robotank
-      # best games for proportional PER:
-      - atlantis
-      - gopher
-    timesteps: 10_000_000
-    rmem_type: [StratifiedReplayMemory, ReplayMemory]
+      # 3 toytext envs:
+      - FrozenLake-v0
+      - FrozenLake8x8-v0
+      - Taxi-v3
+    timesteps: 2_000_000
+    rmem_type: [StratifiedReplayMemory, ReplayMemory, PrioritizedReplayMemory]
     seed: {csv(range(5))}
+    alpha: [0.3, 0.6, 0.9]
 """
     jobs = cartesian_product(manifest_yaml)
     submit_all(jobs, 'dqn.py', args.output_dir, args.go, args.auto_gpu)

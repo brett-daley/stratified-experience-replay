@@ -23,7 +23,7 @@ def atari_hparams():
         'model_fn': get_model_fn_by_name('atari_cnn'),
         'optimizer': optimizers.Adam(learning_rate=1e-4, epsilon=1e-4),
         'prepopulate': 250_000,
-        'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=1_000_000),
+        'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=1_000_000, alpha=0),
         'scale_obs': 1.0 / 255.0,
         'update_freq': 10_000,
     }
@@ -32,11 +32,11 @@ def atari_hparams():
 def toytext_hparams():
     return {
         'discount': 0.99,
-        'epsilon_schedule': schedules.LinearAnnealSchedule(start_value=1.0, end_value=0.1, timeframe=600_000),
+        'epsilon_schedule': schedules.LinearAnnealSchedule(start_value=1.0, end_value=0.1, timeframe=500_000),
         'model_fn': get_model_fn_by_name('cartpole_mlp'),
         'optimizer': optimizers.Adam(learning_rate=1e-4, epsilon=1e-4),
         'prepopulate': 50_000,
-        'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=500_000),
+        'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=500_000, alpha=0),
         'scale_obs': 1.0,
         'update_freq': 10_000,
     }
@@ -49,7 +49,7 @@ def cartpole_hparams():
         'model_fn': get_model_fn_by_name('cartpole_mlp'),
         'optimizer': optimizers.Adam(learning_rate=1e-4, epsilon=1e-8),
         'prepopulate': 50_000,
-        'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=500_000),
+        'rmem_constructor': lambda env: ReplayMemory(env, batch_size=32, capacity=500_000, alpha=0),
         'scale_obs': 1.0,
         'update_freq': 10_000,
     }

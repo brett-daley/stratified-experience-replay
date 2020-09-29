@@ -198,13 +198,15 @@ if __name__ == '__main__':
                         help='(int) Seed for random number generation. Default: 0')
     parser.add_argument('--rmem_type', type=str, default='StratifiedReplayMemory',
                         help='(str) Name of replay memory class. Default: StratifiedReplayMemory')
+    parser.add_argument('--alpha', type=float, default=0.,
+                        help='(float) Value for alpha in PER. Default: 0.')
     args = parser.parse_args()
 
     tf.random.set_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    wandb.init(project="frozenlake", name="picky rmem")
+    wandb.init(project="toytext runs", name="tbd")
     env = dqn_utils.make_env(args.env, args.seed)
     hparams = dqn_utils.get_hparams(args.env)
     hparams['timesteps'] = args.timesteps
@@ -220,10 +222,10 @@ if __name__ == '__main__':
         # Intercept the standard replay memory constructor and replace it
         rmem_cls = getattr(dqn_utils.replay_memory, args.rmem_type)
         rmem = hparams['rmem_constructor'](env)
-        hparams['rmem_constructor'] = lambda e: rmem_cls(e, batch_size=rmem.batch_size, capacity=rmem.capacity)
+        hparams['rmem_constructor'] = lambda e: rmem_cls(e, batch_size=rmem.batch_size, capacity=rmem.capacity, alpha=args.alpha)
 
     print(hparams)
     agent = agent_cls(env, args.nsteps, args.minibatches, **hparams)
 
-    print(f'Training {type(agent).__name__} (n={args.nsteps}, m={args.mstraps}, k={args.minibatches}) on {args.env} for {args.timesteps} timesteps with seed={args.seed}')
+    print(f'Training {type(agent).__name__} (n={args.nsteps}, m={args.mstraps}, k={args.minibatches}) on {args.env} for {args.timesteps} timesteps with seed={args.seed} and alpha={args.alpha}')
     train(env, agent, hparams['prepopulate'], hparams['epsilon_schedule'], args.timesteps)
