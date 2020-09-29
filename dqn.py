@@ -206,7 +206,7 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    wandb.init(project="toytext runs", name="tbd")
+    wandb.init(project="toytext runs", name=f'alpha={args.alpha}')
     env = dqn_utils.make_env(args.env, args.seed)
     hparams = dqn_utils.get_hparams(args.env)
     hparams['timesteps'] = args.timesteps

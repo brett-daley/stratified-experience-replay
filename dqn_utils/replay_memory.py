@@ -7,7 +7,7 @@ from dqn_utils.random_dict import RandomDict
 
 
 class ReplayMemory:
-    def __init__(self, env, batch_size=32, capacity=1_000_000, alpha=0):
+    def __init__(self, env, batch_size=32, capacity=1_000_000, alpha='hold'):
         self.batch_size = batch_size
         self.capacity = capacity
         self.size_now = 0
@@ -56,7 +56,7 @@ class ReplayMemory:
 
 
 class StratifiedReplayMemory(ReplayMemory):
-    def __init__(self, env, batch_size=32, capacity=1_000_000, alpha=0):
+    def __init__(self, env, batch_size=32, capacity=1_000_000, alpha='hold'):
         super().__init__(env, batch_size, capacity)
         self.pair_to_indices_dict = RandomDict()
 
@@ -116,9 +116,10 @@ class StratifiedReplayMemory(ReplayMemory):
 
 
 class PrioritizedReplayMemory(ReplayMemory):
-    def __init__(self, env, batch_size=32, capacity=1_000_000, alpha=0):
+    def __init__(self, env, batch_size=32, capacity=1_000_000, alpha='hold'):
         # Just hardcode the prioritization hyperparameters here
         # These are the default from the original paper, and OpenAI uses them too
+        assert type(alpha) is float, "Error: Must set alpha"
         self.alpha = alpha
         self.beta_schedule = lambda train_frac: 0.4 + 0.6 * train_frac
         self.epsilon = 1e-6
