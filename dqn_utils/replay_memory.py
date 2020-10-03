@@ -152,4 +152,4 @@ class PrioritizedReplayMemory(ReplayMemory):
 
 
 def make_pair(observation, action):
-    return (observation.tostring(), action)
+    return (hash(observation.tostring()), action)
