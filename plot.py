@@ -44,7 +44,7 @@ def load_data_from_file(path):
 
 
 def parse_one(directory, key):
-    pattern = key + '_seed-*.txt'
+    pattern = key + '_seed-*'
     files = glob(os.path.join(directory, pattern))
     if not files:
         print(f'Warning: skipping {key} because no files in {directory} match {pattern}')
@@ -146,14 +146,16 @@ def main():
                                        group_params['colors']):
                 set_plot_attributes(plot_params)  # Overrides group parameters
                 assert '_seed-' not in e
+                assert '.txt' not in e
                 report = parse_one(args.input_dir, e)
                 xmetric = plot_params['xmetric'] if 'xmetric' in plot_params else group_params['xmetric']
                 ymetric = plot_params['ymetric'] if 'ymetric' in plot_params else group_params['ymetric']
                 try:
-                    x, y = map(np.array, [report[xmetric], report[ymetric]])
+                    x, y, error = map(np.array, [report[xmetric], report[ymetric], report[ymetric + '.std']])
                 except:
                     print(report.keys())
                 plt.plot(x, y, color, label=label)
+                plt.fill_between(x, (y - error), (y + error), color=color, alpha=0.25, linewidth=0)
 
             format_plot()
             save(plot_name, args.output_dir, args.pdf)
