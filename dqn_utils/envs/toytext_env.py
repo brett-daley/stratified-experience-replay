@@ -120,7 +120,7 @@ class TaxiObsWrapper(gym.ObservationWrapper):
         normed_obs[5] = dest_y
         normed_obs[6] = pass_in_car
 
-        return normed_obs
+        return normed_obs.astype(np.float32)
 
 
 ALL_ENVS = (
