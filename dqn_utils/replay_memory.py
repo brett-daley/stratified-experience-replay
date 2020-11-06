@@ -59,8 +59,11 @@ class StratifiedReplayMemory(ReplayMemory):
     def __init__(self, env, batch_size=32, capacity=1_000_000):
         super().__init__(env, batch_size, capacity)
         self.pair_to_indices_dict = RandomDict()
+        self.t = 0
 
     def save(self, observation, action, reward, done, new_observation):
+        self.t += 1
+
         p = self.pointer
 
         # self._update_histogram_data()
@@ -98,20 +101,23 @@ class StratifiedReplayMemory(ReplayMemory):
         return x
 
     def _update_histogram_data(self):
-        if not self._is_full():
-            if not hasattr(self, '_n_unique_over_time'):
-                self._n_unique_over_time = []
-            self._n_unique_over_time.append( len(self.pair_to_indices_dict.values) )
+        x = int(250_000 + 2_000_000)
 
-        if self._is_full():
+        if not hasattr(self, '_n_unique_over_time'):
+            self._n_unique_over_time = []
+        self._n_unique_over_time.append( len(self.pair_to_indices_dict.values) )
+
+        if self.t == x:
+            env_name = 'stargunner'  # Edit this to change the output filenames
+
             # Save data for unique vs time
-            np.savetxt('n_unique_over_time.txt', self._n_unique_over_time, fmt='%d')
+            np.savetxt('{}_n_unique_over_time.txt'.format(env_name), self._n_unique_over_time, fmt='%d')
 
             # Save data for histogram
             count_list = []
             for _, index_deque in self.pair_to_indices_dict.values:
                 count_list.append( len(index_deque) )
-            np.savetxt('unique_frequency.txt', count_list, fmt='%d')
+            np.savetxt('{}_unique_frequency.txt'.format(env_name), count_list, fmt='%d')
             import sys; sys.exit()
 
 
