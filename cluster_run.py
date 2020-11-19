@@ -6,11 +6,11 @@ import time
 # from atari_env import ALL_GAMES
 
 ######### RUN PARAMETERS #########
-env_grid = ['breakout']
+env_grid = ['breakout', 'qbert']
 #env_grid = ['qbert']
 #rmem_grid = ['ReplayMemory']
 #rmem_grid = ['StratifiedReplayMemory']
-rmem_grid = ['PrioritizedReplayMemory']
+rmem_grid = ['ReplayMemory', 'StratifiedReplayMemory', 'PrioritizedReplayMemory']
 # env_grid = ALL_GAMES
 n_grid = [1]  # n-step learning
 m_grid = [0]  # m-strap learning (0 means disabled)
@@ -18,6 +18,7 @@ seed_grid = range(5)
 #seed_grid = [0]
 # CAUTION: Changes in timesteps will NOT be reflected in output/err file names
 timesteps = 10_000_000
+wandb_proj = 'aamas'
 ##################################
 
 
@@ -88,7 +89,7 @@ def main():
                         basename = f'env-{env_no_underscore}_n-{n}_m-{m}_seed-{seed}_rmem-{rmem_type}'
                         out_file = basename + '.txt'
                         err_file = basename + '.err.txt'
-                        cmd = f'python3 dqn.py --env {env} -n {n} -m {m} --timesteps {timesteps} --seed {seed} --rmem_type {rmem_type}'
+                        cmd = f'python3 dqn.py --env {env} -n {n} -m {m} --timesteps {timesteps} --seed {seed} --rmem_type {rmem_type} --wandb_proj {wandb_proj}'
 
                         # If file for a configuration exists, skip over that configuration
                         if os.path.exists(out_file) or os.path.exists(err_file):
