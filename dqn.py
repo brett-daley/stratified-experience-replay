@@ -9,6 +9,7 @@ import time
 import math
 import wandb
 import random
+import time
 
 import dqn_utils
 
@@ -202,9 +203,11 @@ if __name__ == '__main__':
                         help='(str) Name of Weights & Biases project. Default: SER')
     args = parser.parse_args()
 
+    time.sleep(random.uniform(1., 600.))    # Sleep for a random number of seconds up to 800 to avoid causing cudnn errors among different runs
     tf.random.set_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
+    time.sleep(random.uniform(1., 600.))  # Sleep for a random number of seconds up to 800 to avoid causing cudnn errors among different runs
 
     wandb.init(project=args.wandb_proj, name=args.env + '-' + args.rmem_type)
     env = dqn_utils.make_env(args.env, args.seed)
