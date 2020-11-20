@@ -58,32 +58,40 @@ class ReplayMemory:
 class StratifiedReplayMemory(ReplayMemory):
     def __init__(self, env, batch_size=32, capacity=1_000_000):
         super().__init__(env, batch_size, capacity)
-        self.pair_to_indices_dict = RandomDict()
+        self.key_to_indices_dict = RandomDict()
         self.t = 0
 
     def save(self, observation, action, reward, done, new_observation):
         self.t += 1
-
-        p = self.pointer
-
         # self._update_histogram_data()
 
         # If we're full, we need to delete the oldest entry first
         if self._is_full():
-            old_pair = make_pair(self.observations[p], self.actions[p])
-            old_index_deque = self.pair_to_indices_dict[old_pair]
-            old_index_deque.popleft()
-            if not old_index_deque:
-                self.pair_to_indices_dict.pop(old_pair)
+            self._erase_old_index()
 
         # Update the index for the new entry
-        new_pair = make_pair(observation, action)
-        if new_pair not in self.pair_to_indices_dict:
-            self.pair_to_indices_dict[new_pair] = deque()
-        self.pair_to_indices_dict[new_pair].append(p)
+        self._write_new_index(observation, action)
 
-        # Save the transition
+        # Save the transition at the new index
         super().save(observation, action, reward, done, new_observation)
+
+    def _write_new_index(self, observation, action):
+        key = self._make_key(observation, action)
+        if key not in self.key_to_indices_dict:
+            self.key_to_indices_dict[key] = deque()
+        p = self.pointer
+        self.key_to_indices_dict[key].append(p)
+
+    def _erase_old_index(self):
+        p = self.pointer
+        key = self._make_key(self.observations[p], self.actions[p])
+        index_deque = self.key_to_indices_dict[key]
+        index_deque.popleft()
+        if not index_deque:
+            self.key_to_indices_dict.pop(key)
+
+    def _make_key(self, observation, action):
+        return (hash(observation.tostring()), action)
 
     def sample(self, discount, nsteps, train_frac):
         if nsteps != 1:
@@ -92,7 +100,7 @@ class StratifiedReplayMemory(ReplayMemory):
         return super().sample(discount, nsteps, train_frac)
 
     def _sample_index(self, nsteps):
-        index_deque = self.pair_to_indices_dict.random_value()
+        index_deque = self.key_to_indices_dict.random_value()
         x = random.choice(index_deque)
         # Make sure the sampled index has room to bootstrap
         if (x - self.pointer) % self.size_now >= self.capacity - nsteps:
@@ -105,7 +113,7 @@ class StratifiedReplayMemory(ReplayMemory):
 
         if not hasattr(self, '_n_unique_over_time'):
             self._n_unique_over_time = []
-        self._n_unique_over_time.append( len(self.pair_to_indices_dict.values) )
+        self._n_unique_over_time.append( len(self.key_to_indices_dict.values) )
 
         if self.t == x:
             env_name = 'stargunner'  # Edit this to change the output filenames
@@ -115,7 +123,7 @@ class StratifiedReplayMemory(ReplayMemory):
 
             # Save data for histogram
             count_list = []
-            for _, index_deque in self.pair_to_indices_dict.values:
+            for _, index_deque in self.key_to_indices_dict.values:
                 count_list.append( len(index_deque) )
             np.savetxt('{}_unique_frequency.txt'.format(env_name), count_list, fmt='%d')
             import sys; sys.exit()
@@ -157,5 +165,3 @@ class PrioritizedReplayMemory(ReplayMemory):
         self.buffer.update_priorities(indices, new_priorities)
 
 
-def make_pair(observation, action):
-    return (hash(observation.tostring()), action)
