@@ -129,6 +129,83 @@ class StratifiedReplayMemory(ReplayMemory):
             import sys; sys.exit()
 
 
+class StatesOnlyStratifiedMemory(StratifiedReplayMemory):
+    """Samples over unique states only (no actions), thereby ignoring policy corrections."""
+
+    def _make_key(self, observation, action):
+        return hash(observation.tostring())
+
+
+class AnnealingStratifiedMemory(StratifiedReplayMemory):
+    """Probabilistically interpolates between stratified and uniform sampling. The
+    probability p is annealed to 0 over the course of training."""
+
+    def sample(self, discount, nsteps, train_frac):
+        self.train_frac = train_frac  # HACK: pass train_frac to _sample_index()
+        return super().sample(discount, nsteps, train_frac)
+
+    def _sample_index(self, nsteps):
+        p = np.random.rand()
+        if p < (1.0 - self.train_frac):
+            # Sample with stratification
+            return super()._sample_index(nsteps)
+        else:
+            # Sample uniformly
+            x = np.random.randint(self.size_now - nsteps)
+            return (self.pointer + x) % self.size_now
+
+
+class ScaledLRMemory(StratifiedReplayMemory):
+    """Samples uniformly but divides the effective learning rate by the (s,a) count."""
+
+    def sample(self, discount, nsteps, train_frac):
+        """Sample as usual, but then adjust the weights by the frequency count."""
+        (observations, actions, nstep_rewards, done_mask,
+            bootstrap_observations, weights), i = super().sample(discount, nsteps, train_frac)
+
+        # Get the count for each (s,a) pair and divide the weight by it
+        for x, (o, a) in enumerate(zip(observations, actions)):
+            key = self._make_key(o, a)
+            count = len(self.key_to_indices_dict[key])
+            weights[x] /= count
+
+        # Scale the weights so the average is 1
+        weights /= weights.mean()
+
+        return (observations, actions, nstep_rewards, done_mask, bootstrap_observations, weights), i
+
+    def _sample_index(self, nsteps):
+        """We override the parent method to force sampling to be uniform."""
+        x = np.random.randint(self.size_now - nsteps)
+        return (self.pointer + x) % self.size_now
+
+
+class RedundantEjectMemory(StratifiedReplayMemory):
+    """Discards the oldest transition from the (s,a) pair with the most transitions.
+    If tied, discards the oldest pair's oldest transition."""
+
+    def _erase_old_index(self):
+        # Find the (s,a) pair with the most transitions
+        max_length = 0
+        candidate_key = None
+        candidate_deque = None
+        for key, index_deque in self.key_to_indices_dict.items():
+            if len(index_deque) > max_length:
+                max_length = len(index_deque)
+                candidate_key = key
+                candidate_deque = index_deque
+
+        if len(candidate_deque) > 1:
+            # This (s,a) pair has multiple transitions, so we discard its oldest one
+            candidate_deque.popleft()
+            if not candidate_deque:
+                self.key_to_indices_dict.pop(candidate_key)
+        else:
+            # All experiences have exactly 1 transition, so we overwrite the oldest
+            # (s,a) pair as usual
+            super()._erase_old_index()
+
+
 class PrioritizedReplayMemory(ReplayMemory):
     def __init__(self, env, batch_size=32, capacity=1_000_000):
         # Just hardcode the prioritization hyperparameters here
