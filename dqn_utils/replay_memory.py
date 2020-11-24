@@ -190,74 +190,19 @@ class RedundantEjectMemory(StratifiedReplayMemory):
     """Discards the oldest transition from the (s,a) pair with the most transitions.
     If tied, discards the oldest pair's oldest transition."""
 
-    def __init__(self, env, batch_size=32, capacity=1_000_000):
-        super().__init__(env, batch_size, capacity)
-        self.timesteps = np.empty(capacity, dtype=np.int32)
-        self.heap = RedundancyHeap()
-
-    def save(self, observation, action, reward, done, new_observation):
-        i = super().save(observation, action, reward, done, new_observation)
-        self.timesteps[i] = self.t
+    def _write_new_index(self, observation, action):
+        key = self._make_key(observation, action)
+        if key not in self.key_to_indices_dict:
+            # maxlen=1 prevents redundant experiences
+            self.key_to_indices_dict[key] = deque(maxlen=1)
+        self.key_to_indices_dict[key].append(self.pointer)
 
     def _erase_old_index(self):
-        # Find the (s,a) pair with the most transitions
-        key, index_deque = self.heap.pop()
-
-        if len(index_deque) == 1:
-            # All (s,a) pairs have 1 transition, so we remove the oldest (approximately)
-            i, index_deque = self._get_approximate_oldest()
-        else:
-            # This (s,a) pair has multiple transitions, so we discard its oldest one
-            i = index_deque.popleft()
-
-        if len(index_deque) == 0:
-            # Delete this (s,a) pair since it's empty
-            self.key_to_indices_dict.pop(key)
-        else:
-            # This (s,a) pair is not empty, so put it back in the heap
-            self.heap.push(key, index_deque)
-        return i
-
-    def _get_approximate_oldest(self):
-        """Sample-based search for the index of the oldest experience. Returns the index
-        of the oldest experience in the minibatch.
-        """
-        t = float('inf')
-        oldest_index = None
-        oldest_deque = None
-        for _ in range(100):
-            # Sample an (s,a) pair randomly and then get its oldest index
-            index_deque = self.key_to_indices_dict.random_value()
-            i = index_deque[0]
-            # Save it if it's older (i.e. was added earlier)
-            if self.timesteps[i] < t:
-                t = self.timesteps[i]
-                oldest_index = i
-                oldest_deque = index_deque
-        return oldest_index, oldest_deque
-
-    def _write_new_index(self, index, observation, action):
-        key = self._make_key(observation, action)
-        new = (key not in self.key_to_indices_dict)
-        if new:
-            self.key_to_indices_dict[key] = deque()
-        self.key_to_indices_dict[key].append(index)
-        if new:
-            self.heap.push(key, self.key_to_indices_dict[key])
-
-
-class RedundancyHeap:
-    def __init__(self):
-        self.heap = []
-
-    def push(self, key, index_deque):
-        # heapq uses a min heap but we want a max heap, so multiply length by -1
-        priority = -len(index_deque)
-        return heapq.heappush(self.heap, (priority, key, index_deque))
-
-    def pop(self):
-        priority, key, index_deque = heapq.heappop(self.heap)
-        return key, index_deque
+        try:
+            super()._erase_old_index()
+        except KeyError:
+            # We already deleted this key automatically
+            pass
 
 
 class PrioritizedReplayMemory(ReplayMemory):
