@@ -1,7 +1,6 @@
 import numpy as np
 import random
 from collections import deque
-import heapq
 
 from dqn_utils.prioritization import PrioritizedReplayBuffer
 from dqn_utils.random_dict import RandomDict
@@ -68,24 +67,20 @@ class StratifiedReplayMemory(ReplayMemory):
 
         # If we're full, we need to delete the oldest entry first
         if self._is_full():
-            i = self._erase_old_index()
-        else:
-            i = self.pointer
+            self._erase_old_index()
 
-        self._write_new_index(i, observation, action)
+        # Update the index for the new entry
+        self._write_new_index(observation, action)
 
-        # Temporarily adjust the pointer so we can write to an arbitrary index
-        p = self.pointer
-        self.pointer = i
+        # Save the transition at the new index
         super().save(observation, action, reward, done, new_observation)
-        self.pointer = (p + 1) % self.capacity
-        return i
 
-    def _write_new_index(self, index, observation, action):
+    def _write_new_index(self, observation, action):
         key = self._make_key(observation, action)
         if key not in self.key_to_indices_dict:
             self.key_to_indices_dict[key] = deque()
-        self.key_to_indices_dict[key].append(index)
+        p = self.pointer
+        self.key_to_indices_dict[key].append(p)
 
     def _erase_old_index(self):
         p = self.pointer
@@ -94,7 +89,6 @@ class StratifiedReplayMemory(ReplayMemory):
         index_deque.popleft()
         if not index_deque:
             self.key_to_indices_dict.pop(key)
-        return p
 
     def _make_key(self, observation, action):
         return (hash(observation.tostring()), action)
