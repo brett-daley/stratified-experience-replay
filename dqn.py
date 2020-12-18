@@ -203,13 +203,11 @@ if __name__ == '__main__':
                         help='(str) Name of Weights & Biases project. Default: SER')
     args = parser.parse_args()
 
-    time.sleep(random.uniform(1., 600.))    # Sleep for a random number of seconds up to 800 to avoid causing cudnn errors among different runs
     tf.random.set_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
-    time.sleep(random.uniform(1., 600.))  # Sleep for a random number of seconds up to 800 to avoid causing cudnn errors among different runs
 
-    wandb.init(project=args.wandb_proj, name=args.env + '-' + args.rmem_type)
+    wandb.init(project=args.wandb_proj, name=args.env + '-' + args.rmem_type + '-' + '42x42x8')
     env = dqn_utils.make_env(args.env, args.seed)
     hparams = dqn_utils.get_hparams(args.env)
     hparams['timesteps'] = args.timesteps

@@ -7,15 +7,17 @@ import time
 
 ######### RUN PARAMETERS #########
 #env_grid = ['breakout', 'qbert']
-env_grid = ['qbert']
-rmem_grid = ['ReplayMemory']
+#env_grid = ['breakout', 'star_gunner', 'space_invaders']
+env_grid = ['space_invaders']
+#rmem_grid = ['RedundantEjectMemory']
+#rmem_grid = ['RedundantEjectMemory', 'StatesOnlyStratifiedMemory', 'AnnealingStratifiedMemory']
 #rmem_grid = ['StratifiedReplayMemory']
-#rmem_grid = ['ReplayMemory', 'StratifiedReplayMemory', 'PrioritizedReplayMemory']
+rmem_grid = ['ReplayMemory', 'StratifiedReplayMemory', 'PrioritizedReplayMemory', 'RedundantEjectMemory']
 # env_grid = ALL_GAMES
 n_grid = [1]  # n-step learning
 m_grid = [0]  # m-strap learning (0 means disabled)
-seed_grid = range(5)
-#seed_grid = [0]
+seed_grid = range(3)
+#seed_grid = [1]
 # CAUTION: Changes in timesteps will NOT be reflected in output/err file names
 timesteps = 10_000_000
 wandb_proj = 'aamas'
@@ -40,11 +42,10 @@ def dispatch(out_file, err_file, cmd, max_hours, mem, go):
 #SBATCH -e {err_file}  # File to which STDERR will be written, %j inserts jobid
 module load Anaconda3/5.0.1-fasrc01  # Load module
 #module load cuda/10.1.243-fasrc01
-echo $RANDOM
-sleep $(( $RANDOM % 800 ))    # Pauses for random number of seconds (up to 80) to avoid separate jobs accessing cudnn at once
+echo $(( $RANDOM % 2700 ))
+sleep $(( $RANDOM % 2700 ))    # Pauses for random number of seconds (up to 2500) to avoid separate jobs accessing cudnn at once
 module load cudnn/7.6.5.32_cuda10.1-fasrc01
 source activate bretts_venv  # Switch to appropriate conda environment
-sleep $(( $RANDOM % 800 ))
 {cmd}  # Run code
 """
         )
