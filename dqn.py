@@ -207,7 +207,7 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    wandb.init(project=args.wandb_proj, name=args.env + '-' + args.rmem_type + '-' + '42x42x8')
+    wandb.init(project=args.wandb_proj, name=args.env + '-' + args.rmem_type + '-' + 'uber')
     env = dqn_utils.make_env(args.env, args.seed)
     hparams = dqn_utils.get_hparams(args.env)
     hparams['timesteps'] = args.timesteps

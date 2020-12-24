@@ -6,7 +6,7 @@ import cv2
 
 from dqn_utils import envs
 
-def make(game, size=42, grayscale=True, history_len=4):
+def make(game, grayscale=True, history_len=4, target_shape=(42,42), max_pix_value=8):
     env = AtariEnv(game, frameskip=4, obs_type='image')
     env = envs.make.monitor(env, game)
     if 'FIRE' in env.unwrapped.get_action_meanings():
@@ -14,7 +14,7 @@ def make(game, size=42, grayscale=True, history_len=4):
     env = NoopResetWrapper(env)
     env = EpisodicLifeWrapper(env)
     env = ClippedRewardWrapper(env)
-    env = PreprocessedImageWrapper(env, size, grayscale)
+    env = PreprocessedImageWrapper(env, grayscale, target_shape, max_pix_value)
     if history_len > 1:
         env = HistoryWrapper(env, history_len)
     return env
@@ -107,18 +107,31 @@ class NoopResetWrapper(gym.Wrapper):
 
 class PreprocessedImageWrapper(gym.ObservationWrapper):
     '''Resizes image observations and optionally converts them to grayscale.'''
-    def __init__(self, env, size=42, grayscale=True):
+    def __init__(self, env, grayscale=True, target_shape=(42,42), max_pix_value=8):
         super().__init__(env)
-        self.size = size
+        # self.size = size
         self.grayscale = grayscale
-        self.shape = (size, size, 1 if grayscale else 3)
-        self.observation_space = gym.spaces.Box(low=0, high=7, shape=self.shape, dtype=np.uint8)
+        self.shape = (target_shape[0], target_shape[1], 1 if grayscale else 3)
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=self.shape, dtype=np.uint8)
+
+        self.target_shape = target_shape
+        self.max_pix_value = max_pix_value
+
+    # def observation(self, observation):
+    #     if self.grayscale:
+    #         observation = cv2.cvtColor(observation, cv2.COLOR_BGR2GRAY)
+    #     observation = cv2.resize(observation, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
+    #     return observation.reshape(self.shape).astype(np.uint8)
 
     def observation(self, observation):
         if self.grayscale:
             observation = cv2.cvtColor(observation, cv2.COLOR_BGR2GRAY)
-        observation = cv2.resize(observation, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
+        observation = ((cv2.resize(observation, self.target_shape, interpolation=cv2.INTER_AREA) / 255.0)
+                       * self.max_pix_value)
         return observation.reshape(self.shape).astype(np.uint8)
+        # return ((cv2.resize(cv2.cvtColor(observation, cv2.COLOR_RGB2GRAY),
+        #                     target_shape, interpolation=cv2.INTER_AREA) / 255.0) *
+        #         max_pix_value).astype(np.uint8)
 
 
 
