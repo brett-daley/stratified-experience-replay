@@ -146,18 +146,17 @@ class BatchmodeDQNAgent(DQNAgent):
 def train(env, agent, prepopulate, epsilon_schedule, timesteps):
     observation = env.reset()
 
-    print('timestep', 'episode', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
+    print('episode', 'timestep', 'return', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
+    start_time = time.time()
+
     for t in range(-prepopulate, timesteps+1):  # Relative to training start
         epsilon = epsilon_schedule(t) if t >= 0 else 1.0
 
-        if t == 0:
-            start_time = time.time()
-
         if t >= 0:
+            # Old log: every 5k timesteps, to wandb only
             if (t % 5_000) == 0:
                 rewards = env.get_episode_rewards()
                 hours = (time.time() - start_time) / 3600
-                print(f'{t}  {len(rewards)}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
 
                 wandb.log({'Epsilon': epsilon,
                         'Hours': hours,
@@ -172,6 +171,12 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
         new_observation, reward, done, _ = env.step(action)
         if done:
             new_observation = env.reset()
+
+            # New log: every episode completion, to output file only
+            rewards = env.get_episode_rewards()
+            hours = (time.time() - start_time) / 3600
+            print(f'{len(rewards)}  {t}  {rewards[-1]}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
+
         agent.save(observation, action, reward, done, new_observation)
         observation = new_observation
 
