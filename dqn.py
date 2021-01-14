@@ -147,6 +147,7 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
     observation = env.reset()
 
     print('episode', 'timestep', 'return', 'avg_return', 'epsilon', 'hours', sep='  ', flush=True)
+    episodes = 0
     start_time = time.time()
 
     for t in range(-prepopulate, timesteps+1):  # Relative to training start
@@ -172,10 +173,15 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
         if done:
             new_observation = env.reset()
 
-            # New log: every episode completion, to output file only
+            # Some environments (e.g. Pong) signal "done" when the player loses a life,
+            # so make sure this is a real episode termination
             rewards = env.get_episode_rewards()
-            hours = (time.time() - start_time) / 3600
-            print(f'{len(rewards)}  {t}  {rewards[-1]}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
+            if len(rewards) != episodes:
+                episodes = len(rewards)
+
+                # New log: every episode completion, to output file only
+                hours = (time.time() - start_time) / 3600
+                print(f'{len(rewards)}  {t}  {rewards[-1]}  {np.mean(rewards[-100:])}  {epsilon:.3f}  {hours:.3f}', flush=True)
 
         agent.save(observation, action, reward, done, new_observation)
         observation = new_observation
