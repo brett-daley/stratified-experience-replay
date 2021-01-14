@@ -30,15 +30,19 @@ def main():
             bar_dict[game] = []
 
         # Set baseline score as 0th value in dict list for each game
-        if "m-0" in exp_name:
-            classic_dqn_final_score = y[-1]
-            bar_dict[game].insert(0, classic_dqn_final_score)
+        # import ipdb; ipdb.set_trace()
+        if "Stratified" not in exp_name:
+            uer_score = y[-1]
+            bar_dict[game].insert(0, uer_score)
         # Set modified DQN score as last value in dict list for each game
-        if "m-0" not in exp_name:
-            our_method_score = y[-1]
-            bar_dict[game].append(our_method_score)
+        if "Stratified" in exp_name:
+            ser_score = y[-1]
+            bar_dict[game].append(ser_score)
+        # Raise error if trying to plot PER
+        if "Prioritized" in exp_name:
+            raise NotImplementedError('Have not implemented Prioritized ER plotting')
 
-    #  Check that 2 (and only 2) values (one type from our method and the baseline) are being compared per game
+    #  Check that 2 (and only 2) values (one type from new method and the baseline) are being compared per game
     for key in bar_dict.keys():
         assert len(bar_dict[key]) == 2, """
         Invalid number of comparisons. Check input directory to ensure comparison is between baseline
@@ -49,9 +53,9 @@ def main():
     relative_pcts = []
     for key in bar_dict.keys():
         # Calculate relative score
-        classic_dqn_final_score = bar_dict[key][0]
-        our_method_score = bar_dict[key][1]
-        relative_score_as_pct = (our_method_score / classic_dqn_final_score) * 100
+        uer_score = bar_dict[key][0]
+        ser_score = bar_dict[key][1]
+        relative_score_as_pct = (ser_score / uer_score) * 100
         # Store for plotting
         relative_pcts.append(relative_score_as_pct)
         bar_titles.append(key)
@@ -59,8 +63,8 @@ def main():
     # Plot
     plt.style.use('seaborn-darkgrid')
     fig, ax = plt.subplots()
-    plt.title("Our Method's Score as % of Classic DQN's")
-    bars = ax.bar(bar_titles, relative_pcts)
+    plt.title("SER Score as % of Uniform ER Score")
+    bars = ax.barh(bar_titles, relative_pcts)
     for i, relative_pct in enumerate(relative_pcts):
         ax.text(i, relative_pct, '{:0.2f}%'.format(relative_pct), color='black', ha='center', va='bottom')
 
