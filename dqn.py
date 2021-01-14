@@ -203,13 +203,15 @@ if __name__ == '__main__':
                         help='(int) Seed for random number generation. Default: 0')
     parser.add_argument('--rmem_type', type=str, default='StratifiedReplayMemory',
                         help='(str) Name of replay memory class. Default: StratifiedReplayMemory')
+    parser.add_argument('--wandb_proj', type=str, default='SER-final',
+                        help='(str) Name of Weights & Biases project. Default: SER-final')
     args = parser.parse_args()
 
     tf.random.set_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    wandb.init(project="frozenlake", name="picky rmem")
+    wandb.init(project=args.wandb_proj, name=args.env + '-' + args.rmem_type)
     env = dqn_utils.make_env(args.env, args.seed)
     hparams = dqn_utils.get_hparams(args.env)
     hparams['timesteps'] = args.timesteps
