@@ -24,19 +24,18 @@ def main():
         assert '_seed-' not in exp_name
 
         game = grab('env-()', exp_name)
-        y = report['avg_return']
+        y = report['return']
 
         if game not in bar_dict.keys():
             bar_dict[game] = []
 
         # Set baseline score as 0th value in dict list for each game
-        # import ipdb; ipdb.set_trace()
         if "Stratified" not in exp_name:
-            uer_score = y[-1]
+            uer_score = np.mean(y)
             bar_dict[game].insert(0, uer_score)
         # Set modified DQN score as last value in dict list for each game
         if "Stratified" in exp_name:
-            ser_score = y[-1]
+            ser_score = np.mean(y)
             bar_dict[game].append(ser_score)
         # Raise error if trying to plot PER
         if "Prioritized" in exp_name:
@@ -70,7 +69,7 @@ def main():
 
     plt.tight_layout(pad=0.2)
 
-    save("bar_plot_newest", args.output_dir, args.pdf)
+    save("bar_plot", args.output_dir, args.pdf)
     plt.close()
 
 
