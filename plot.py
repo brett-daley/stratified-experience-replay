@@ -85,14 +85,14 @@ def parse_one(directory, key):
     return report
 
 
-def save(name, directory, pdf):
+def save(name, directory, pdf, **kwargs):
     path = os.path.join(directory, name)
     if pdf:
         path += '.pdf'
-        plt.savefig(path, format='pdf')
+        plt.savefig(path, format='pdf', **kwargs)
     else:
         path += '.png'
-        plt.savefig(path, format='png')
+        plt.savefig(path, format='png', **kwargs)
     print(f'Saved plot as {path}', flush=True)
 
 

@@ -3,8 +3,55 @@ from argparse import ArgumentParser
 import numpy as np
 import os
 import re
-from plot import save, grab
-from report_results import parse_all
+from collections import defaultdict
+from glob import glob
+
+from plot import save, grab, load_data_from_file
+import dqn_utils
+
+
+def compute_avg_return(key, directory):
+    pattern = key + '_seed-*'
+    files = glob(os.path.join(directory, pattern))
+    if not files:
+        print(f'Warning: skipping {key} because no files in {directory} match {pattern}')
+        raise ValueError
+
+    values = []
+    for f in files:
+        data = load_data_from_file(f)
+        v = np.mean(data[:,2])  # 3rd row is episode return
+        values.append(v)
+
+    # Average over seeds
+    mean = np.mean(values)
+    if len(values) > 1:
+        std = np.std(values, ddof=1)
+    else:
+        std = 0.0
+    return mean, std
+
+
+def random_baseline(game, n):
+    env = dqn_utils.make_env(game, seed=0)
+    for _ in range(n):
+        state = env.reset()
+        done = False
+        while not done:
+            state, _, done, _ = env.step(env.action_space.sample())
+    returns = env.get_episode_rewards()
+    return np.mean(returns)
+
+
+def fix_env_name(env):
+    try:
+        return {
+            'beamrider': 'beam_rider',
+            'stargunner': 'star_gunner',
+            'spaceinvaders': 'space_invaders',
+        }[env]
+    except KeyError:
+        return env
 
 
 def main():
@@ -17,59 +64,42 @@ def main():
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
 
-    bar_dict = {}
+    # Get unique runs (ignoring seeds)
+    keys = set()
+    for f in os.listdir(args.input_dir):
+        k = re.sub('_seed-[0-9]+(.txt)?', '', f)
+        keys.add(k)
 
-    summary = parse_all(args.input_dir)
-    for exp_name, report in summary.items():
-        assert '_seed-' not in exp_name
+    # Compute average performance and store in dictionary
+    bar_dict = defaultdict(dict)
+    for k in keys:
+        mean, std = compute_avg_return(k, args.input_dir)
+        # print(k, mean, std)
+        env = fix_env_name(grab('env-()', k))
+        rmem_type = grab('rmem-()', k)
+        bar_dict[env].update({rmem_type: (mean, std)})
 
-        game = grab('env-()', exp_name)
-        y = report['return']
-
-        if game not in bar_dict.keys():
-            bar_dict[game] = []
-
-        # Set baseline score as 0th value in dict list for each game
-        if "Stratified" not in exp_name:
-            uer_score = np.mean(y)
-            bar_dict[game].insert(0, uer_score)
-        # Set modified DQN score as last value in dict list for each game
-        if "Stratified" in exp_name:
-            ser_score = np.mean(y)
-            bar_dict[game].append(ser_score)
-        # Raise error if trying to plot PER
-        if "Prioritized" in exp_name:
-            raise NotImplementedError('Have not implemented Prioritized ER plotting')
-
-    #  Check that 2 (and only 2) values (one type from new method and the baseline) are being compared per game
-    for key in bar_dict.keys():
-        assert len(bar_dict[key]) == 2, """
-        Invalid number of comparisons. Check input directory to ensure comparison is between baseline
-        and one (and only one) modified version.
-        """
-
-    bar_titles = []
-    relative_pcts = []
-    for key in bar_dict.keys():
-        # Calculate relative score
-        uer_score = bar_dict[key][0]
-        ser_score = bar_dict[key][1]
-        relative_score_as_pct = (ser_score / uer_score) * 100
-        # Store for plotting
-        relative_pcts.append(relative_score_as_pct)
-        bar_titles.append(key)
+    envs_and_scores = []
+    for env in bar_dict.keys():
+        print(env)
+        random = random_baseline(env, n=100)
+        uniform = bar_dict[env]['ReplayMemory'][0]
+        stratified = bar_dict[env]['StratifiedReplayMemory'][0]
+        relative_perf = 100 * (stratified - random) / (uniform - random)
+        envs_and_scores.append((env, relative_perf))
 
     # Plot
     plt.style.use('seaborn-darkgrid')
-    fig, ax = plt.subplots()
-    plt.title("SER Score as % of Uniform ER Score")
-    bars = ax.barh(bar_titles, relative_pcts)
-    for i, relative_pct in enumerate(relative_pcts):
-        ax.text(i, relative_pct, '{:0.2f}%'.format(relative_pct), color='black', ha='center', va='bottom')
+    plt.figure()
+    ax = plt.gca()
 
-    plt.tight_layout(pad=0.2)
+    envs_and_scores = sorted(envs_and_scores, key=lambda x: x[1])
+    envs, scores = zip(*envs_and_scores)
+    bars = ax.barh(envs, scores)
+    for i, s in enumerate(scores):
+        ax.text(s * 0.87, i - 0.125, '{:0.2f}%'.format(s), color='white')
 
-    save("bar_plot", args.output_dir, args.pdf)
+    save('bar_plot', args.output_dir, args.pdf, bbox_inches='tight')
     plt.close()
 
 
