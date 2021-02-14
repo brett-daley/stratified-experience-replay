@@ -122,7 +122,9 @@ def main():
     for i, s in enumerate(scores):
         ax.text(s * 0.82, i - 0.125, '{:0.2f}%'.format(s), color='white', zorder=4)
 
-    plt.vlines(100., ymin=-1, ymax=len(bar_dict.keys()), linestyles='dashed', color='slategray', zorder=0)
+    ylim = [-0.75, 10.75]
+    plt.ylim(ylim)
+    plt.vlines(100., ymin=ylim[0], ymax=ylim[1], linestyles='dashed', color='slategray', zorder=0)
     save('bar_plot', args.output_dir, args.pdf, bbox_inches='tight')
     plt.close()
 
