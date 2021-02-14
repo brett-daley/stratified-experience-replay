@@ -20,7 +20,7 @@ def compute_avg_return(key, directory):
     values = []
     for f in files:
         data = load_data_from_file(f)
-        v = np.mean(data[:,2])  # 3rd row is episode return
+        v = np.mean(data[:, 2])  # 3rd row is episode return
         values.append(v)
 
     # Average over seeds
@@ -32,6 +32,15 @@ def compute_avg_return(key, directory):
     return mean, std
 
 
+def calculate_std(stratified_mean, stratified_std, uniform_mean, uniform_std, random_mean, random_std):
+    numerator = stratified_mean - random_mean
+    denominator = uniform_mean - random_mean
+    numerator_std_dev = (stratified_std ** 2 + random_std ** 2) ** (1 / 2)
+    denominator_std_dev = (uniform_std ** 2 + random_std ** 2) ** (1 / 2)
+    return 100 * np.abs(numerator / denominator) * \
+           ((numerator_std_dev / numerator) ** 2 + (denominator_std_dev / denominator) ** 2) ** (1 / 2)
+
+
 def random_baseline(game, n):
     env = dqn_utils.make_env(game, seed=0)
     for _ in range(n):
@@ -40,7 +49,7 @@ def random_baseline(game, n):
         while not done:
             state, _, done, _ = env.step(env.action_space.sample())
     returns = env.get_episode_rewards()
-    return np.mean(returns)
+    return np.mean(returns), np.std(returns)
 
 
 def fix_env_name(env):
@@ -79,26 +88,33 @@ def main():
         rmem_type = grab('rmem-()', k)
         bar_dict[env].update({rmem_type: (mean, std)})
 
-    envs_and_scores = []
+    envs_and_scores_and_errors = []
     for env in bar_dict.keys():
         print(env)
-        random = random_baseline(env, n=100)
-        uniform = bar_dict[env]['ReplayMemory'][0]
-        stratified = bar_dict[env]['StratifiedReplayMemory'][0]
-        relative_perf = 100 * (stratified - random) / (uniform - random)
-        envs_and_scores.append((env, relative_perf))
+        random_mean, random_std = random_baseline(env, n=100)
+        uniform_mean = bar_dict[env]['ReplayMemory'][0]
+        uniform_std = bar_dict[env]['ReplayMemory'][1]
+        stratified_mean = bar_dict[env]['StratifiedReplayMemory'][0]
+        stratified_std = bar_dict[env]['StratifiedReplayMemory'][1]
+        relative_perf = 100 * (stratified_mean - random_mean) / (uniform_mean - random_mean)
+        std_dev = calculate_std(stratified_mean, stratified_std,
+                                uniform_mean, uniform_std,
+                                random_mean, random_std)
+        envs_and_scores_and_errors.append((env, relative_perf, std_dev))
 
     # Plot
     plt.style.use('seaborn-darkgrid')
     plt.figure()
     ax = plt.gca()
 
-    envs_and_scores = sorted(envs_and_scores, key=lambda x: x[1])
-    envs, scores = zip(*envs_and_scores)
-    bars = ax.barh(envs, scores)
+    envs_and_scores_and_errors = sorted(envs_and_scores_and_errors, key=lambda x: x[1])
+    envs, scores, errors = zip(*envs_and_scores_and_errors)
+    bars = ax.barh(envs, scores, zorder=3)
+    error_bars = ax.errorbar(scores, envs, xerr=errors, ls='none', color='black', capsize=3, zorder=2)
     for i, s in enumerate(scores):
-        ax.text(s * 0.87, i - 0.125, '{:0.2f}%'.format(s), color='white')
+        ax.text(s * 0.82, i - 0.125, '{:0.2f}%'.format(s), color='white', zorder=4)
 
+    plt.vlines(100., ymin=-1, ymax=len(bar_dict.keys()), linestyles='dashed', color='slategray', zorder=0)
     save('bar_plot', args.output_dir, args.pdf, bbox_inches='tight')
     plt.close()
 
