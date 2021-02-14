@@ -32,23 +32,24 @@ def compute_avg_return(key, directory):
     return mean, std
 
 
-def calculate_std(stratified_mean, stratified_std, uniform_mean, uniform_std, random_mean, random_std):
-    numerator = stratified_mean - random_mean
-    denominator = uniform_mean - random_mean
-    numerator_std_dev = (stratified_std ** 2 + random_std ** 2) ** (1 / 2)
-    denominator_std_dev = (uniform_std ** 2 + random_std ** 2) ** (1 / 2)
-    return 100 * np.abs(numerator / denominator) * \
-           ((numerator_std_dev / numerator) ** 2 + (denominator_std_dev / denominator) ** 2) ** (1 / 2)
+def std_divide(A_mean, A_std, B_mean, B_std):
+    """Computes standard deviation of A/B."""
+    return np.abs(A_mean / B_mean) * np.sqrt(np.square(A_std / A_mean) + np.square(B_std / B_mean))
 
 
 def random_baseline(game, n):
     env = dqn_utils.make_env(game, seed=0)
-    for _ in range(n):
-        state = env.reset()
-        done = False
-        while not done:
-            state, _, done, _ = env.step(env.action_space.sample())
-    returns = env.get_episode_rewards()
+    state = env.reset()
+    while True:
+        returns = env.get_episode_rewards()
+        if len(returns) >= n:
+            break
+
+        action = np.random.randint(env.action_space.n)
+        state, _, done, _ = env.step(action)
+        if done:
+            state = env.reset()
+
     return np.mean(returns), np.std(returns)
 
 
@@ -64,6 +65,8 @@ def fix_env_name(env):
 
 
 def main():
+    np.random.seed(0)
+
     parser = ArgumentParser()
     parser.add_argument('--input_dir', type=str, default='results')
     parser.add_argument('--output_dir', type=str, default='plots')
@@ -81,7 +84,7 @@ def main():
 
     # Compute average performance and store in dictionary
     bar_dict = defaultdict(dict)
-    for k in keys:
+    for k in sorted(keys):
         mean, std = compute_avg_return(k, args.input_dir)
         # print(k, mean, std)
         env = fix_env_name(grab('env-()', k))
@@ -91,15 +94,20 @@ def main():
     envs_and_scores_and_errors = []
     for env in bar_dict.keys():
         print(env)
-        random_mean, random_std = random_baseline(env, n=100)
+        random_mean, _ = random_baseline(env, n=100)
         uniform_mean = bar_dict[env]['ReplayMemory'][0]
         uniform_std = bar_dict[env]['ReplayMemory'][1]
         stratified_mean = bar_dict[env]['StratifiedReplayMemory'][0]
         stratified_std = bar_dict[env]['StratifiedReplayMemory'][1]
-        relative_perf = 100 * (stratified_mean - random_mean) / (uniform_mean - random_mean)
-        std_dev = calculate_std(stratified_mean, stratified_std,
-                                uniform_mean, uniform_std,
-                                random_mean, random_std)
+
+        # print('A', stratified_mean, stratified_std)
+        # print('B', uniform_mean, uniform_std)
+        # print(random_mean)
+
+        # Assumes that the random baseline is a deterministic quantity
+        relative_perf = 100.0 * (stratified_mean - random_mean) / (uniform_mean - random_mean)
+        std_dev = 100.0 * std_divide(stratified_mean - random_mean, stratified_std,
+                                     uniform_mean - random_mean, uniform_std)
         envs_and_scores_and_errors.append((env, relative_perf, std_dev))
 
     # Plot
