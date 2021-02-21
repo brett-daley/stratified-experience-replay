@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42  # Avoid type 3 fonts
+matplotlib.rcParams['ps.fonttype'] = 42
 import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 import numpy as np
