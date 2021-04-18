@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42  # Avoid type 3 fonts
+matplotlib.rcParams['ps.fonttype'] = 42
 import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 import numpy as np
@@ -6,6 +9,7 @@ import os
 import yaml
 from glob import glob
 
+# METRICS = ('timestep', 'episode', 'avg_return', 'epsilon', 'hours')
 METRICS = ('episode', 'timestep', 'return', 'avg_return', 'epsilon', 'hours')
 
 
@@ -85,14 +89,14 @@ def parse_one(directory, key):
     return report
 
 
-def save(name, directory, pdf):
+def save(name, directory, pdf, **kwargs):
     path = os.path.join(directory, name)
     if pdf:
         path += '.pdf'
-        plt.savefig(path, format='pdf')
+        plt.savefig(path, format='pdf', **kwargs)
     else:
         path += '.png'
-        plt.savefig(path, format='png')
+        plt.savefig(path, format='png', **kwargs)
     print(f'Saved plot as {path}', flush=True)
 
 
