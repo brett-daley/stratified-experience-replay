@@ -5,8 +5,7 @@ import math
 import time
 
 ######### RUN PARAMETERS #########
-env_grid = ['atlantis', 'beam_rider']
-#env_grid = ['atlantis', 'beam_rider', 'breakout', 'gopher', 'jamesbond', 'pong', 'qbert', 'robotank', 'seaquest', 'space_invaders', 'star_gunner']
+env_grid = ['atlantis', 'beam_rider', 'breakout', 'gopher', 'jamesbond', 'pong', 'qbert', 'robotank', 'seaquest', 'space_invaders', 'star_gunner']
 rmem_grid = ['StratifiedReplayMemory', 'ReplayMemory']
 n_grid = [1]  # n-step learning
 m_grid = [0]  # m-strap learning (0 means disabled)
@@ -107,7 +106,7 @@ def main():
                             print(f"Run will use StratifiedReplayMemory, w/ {mem}MB RAM for up to {hours} hours")
                         else:
                             mem = 32000
-                            hours = 9
+                            hours = 8
                             dispatch(out_file, err_file, cmd, hours, mem, args.go)
                             print(f"Run will use {mem}MB RAM for up to {hours} hours")
                         time.sleep(2)
