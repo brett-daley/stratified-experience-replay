@@ -6,7 +6,6 @@ monitor
 runscript.sh
 plots
 results
-plot_config.yaml
 tabular_plots
 tabular_results
 *.txt

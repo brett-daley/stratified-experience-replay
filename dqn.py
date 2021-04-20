@@ -129,20 +129,6 @@ class DQNAgent:
             target_var.assign(var)
 
 
-class BatchmodeDQNAgent(DQNAgent):
-    def __init__(self, env, nsteps, minibatches, **kwargs):
-        super().__init__(env, nsteps, minibatches, **kwargs)
-        self.mstraps = kwargs['mstraps']
-
-    def update(self, t):
-        if (t % self.update_freq) == 0:
-            for _ in range(self.mstraps):
-                self.copy_target_network()
-
-                for _ in range(self.minibatches // self.nsteps):
-                    self._do_minibatch(t)
-
-
 def train(env, agent, prepopulate, epsilon_schedule, timesteps):
     observation = env.reset()
 
@@ -189,18 +175,10 @@ def train(env, agent, prepopulate, epsilon_schedule, timesteps):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    # Changed parser to use FrozenLake as default game
-    # parser.add_argument('--env', type=str, default='pong',
-    #                     help='(str) Name of Atari game. Default: pong')
     parser.add_argument('--env', type=str, default='FrozenLake-v0',
                         help='(str) Name of Atari game. Default: FrozenLake-v0')
     parser.add_argument('-n', '--nsteps', type=int, default=1,
                         help='(int) Number of rewards to use before bootstrapping. Default: 1')
-    # Changed for ease while working on FrozenLake
-    # parser.add_argument('-m', '--mstraps', type=int, default=1,
-    #                     help='(int) Number of target network updates per training epoch. Default: 1')
-    parser.add_argument('-m', '--mstraps', type=int, default=0,
-                        help='(int) Number of target network updates per training epoch. Default: 0')
     parser.add_argument('-k', '--minibatches', type=int, default=2500,
                         help='(int) Number of minibatches per training epoch. Default: 2500')
     parser.add_argument('--timesteps', type=int, default=3_000_000,
@@ -209,8 +187,8 @@ if __name__ == '__main__':
                         help='(int) Seed for random number generation. Default: 0')
     parser.add_argument('--rmem_type', type=str, default='StratifiedReplayMemory',
                         help='(str) Name of replay memory class. Default: StratifiedReplayMemory')
-    parser.add_argument('--wandb_proj', type=str, default='SER-final',
-                        help='(str) Name of Weights & Biases project. Default: SER-final')
+    parser.add_argument('--wandb_proj', type=str, default='SER',
+                        help='(str) Name of Weights & Biases project. Default: SER')
     args = parser.parse_args()
 
     tf.random.set_seed(args.seed)
@@ -222,12 +200,6 @@ if __name__ == '__main__':
     hparams = dqn_utils.get_hparams(args.env)
     hparams['timesteps'] = args.timesteps
 
-    if args.mstraps > 0:
-        agent_cls = BatchmodeDQNAgent
-        hparams['mstraps'] = args.mstraps
-    else:
-        agent_cls = DQNAgent
-
     print('Using', args.rmem_type)
     if args.rmem_type != 'ReplayMemory':
         # Intercept the standard replay memory constructor and replace it
@@ -236,7 +208,7 @@ if __name__ == '__main__':
         hparams['rmem_constructor'] = lambda e: rmem_cls(e, batch_size=rmem.batch_size, capacity=rmem.capacity)
 
     print(hparams)
-    agent = agent_cls(env, args.nsteps, args.minibatches, **hparams)
+    agent = DQNAgent(env, args.nsteps, args.minibatches, **hparams)
 
-    print(f'Training {type(agent).__name__} (n={args.nsteps}, m={args.mstraps}, k={args.minibatches}) on {args.env} for {args.timesteps} timesteps with seed={args.seed}')
+    print(f'Training {type(agent).__name__} (n={args.nsteps}, k={args.minibatches}) on {args.env} for {args.timesteps} timesteps with seed={args.seed}')
     train(env, agent, hparams['prepopulate'], hparams['epsilon_schedule'], args.timesteps)
