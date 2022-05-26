@@ -1,5 +1,5 @@
 atari-py==0.2.6
 gym==0.18.0
 opencv-python==4.2.0.32
-tensorflow-gpu==2.3.0
+tensorflow-gpu==2.7.2
 wandb==0.9.6
